@@ -1,0 +1,23 @@
+{
+    "name": "Supplement.Tests.PlayMode",
+    "rootNamespace": "Supplement.Tests.PlayMode",
+    "references": [
+        "GUID:27619889b8ba8c24980f49ee34dbb44a",
+        "GUID:0acc523941302664db1f4e527237feb3",
+        "GUID:811edc71325a41d4c81e4bc19a1fc6de",
+        "GUID:92868997fed791f4580273552754117d",
+        "GUID:619451fd5e12658408c1bba68b29ad7a",
+        "GUID:f50f3c57a6ab8a546b8103805c756bcd",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

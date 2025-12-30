@@ -1,0 +1,29 @@
+{
+    "name": "Supplement.VContainer",
+    "rootNamespace": "Supplement.VContainer",
+    "references": [
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:41261d631a9f02542ba248f84bf54981",
+        "GUID:4b7a874a3b17d434aaecc3633e34abb6",
+        "GUID:619451fd5e12658408c1bba68b29ad7a",
+        "GUID:8cea2db61e31fb5479b11bf6b3d73be8",
+        "GUID:530c139058a762940af726050691d94b"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "USE_VCONTAINER"
+    ],
+    "versionDefines": [
+        {
+            "name": "jp.hadashikick.vcontainer",
+            "expression": "",
+            "define": "USE_VCONTAINER"
+        }
+    ],
+    "noEngineReferences": false
+}

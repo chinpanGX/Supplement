@@ -1,0 +1,19 @@
+{
+  "name": "Supplement.Tests.Infrastructure",
+  "rootNamespace": "Supplement.Tests.Infrastructure",
+  "references": [
+    "GUID:f51ebe6a0ceec4240a699833d6309b23",
+    "GUID:2b2fcbf7419b59e489aeb88997c05044",
+    "GUID:41261d631a9f02542ba248f84bf54981",
+    "GUID:8b1901aa7b94033418e60f223e15717f"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

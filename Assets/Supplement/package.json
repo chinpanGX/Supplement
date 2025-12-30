@@ -1,0 +1,17 @@
+﻿{
+  "name": "com.chinpangx.supplement",
+  "version": "1.0.0",
+  "displayName": "Supplement",
+  "description": "Supplement Module",
+  "dependencies": {
+    "com.cysharp.unitask": "2.5.10",
+    "jp.hadashikick.vcontainer": "1.17.0",
+    "com.unity.addressables": "2.7.6"
+  },
+  "keywords": [
+    "unity"
+  ],
+  "author": {
+    "name": "shota.deai"
+  }
+}

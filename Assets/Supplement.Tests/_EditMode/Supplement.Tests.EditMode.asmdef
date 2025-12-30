@@ -1,0 +1,30 @@
+{
+    "name": "Supplement.Tests.EditMode",
+    "rootNamespace": "Supplement.Tests",
+    "references": [
+        "GUID:27619889b8ba8c24980f49ee34dbb44a",
+        "GUID:0acc523941302664db1f4e527237feb3",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:41261d631a9f02542ba248f84bf54981",
+        "GUID:4b7a874a3b17d434aaecc3633e34abb6",
+        "GUID:f50f3c57a6ab8a546b8103805c756bcd",
+        "GUID:2b2fcbf7419b59e489aeb88997c05044",
+        "GUID:eaf4123d0439f2a489cd627e0db4bc59"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

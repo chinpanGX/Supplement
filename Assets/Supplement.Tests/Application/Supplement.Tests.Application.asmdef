@@ -1,0 +1,14 @@
+{
+  "name": "Supplement.Tests.Application",
+  "rootNamespace": "Supplement.Tests.Application",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

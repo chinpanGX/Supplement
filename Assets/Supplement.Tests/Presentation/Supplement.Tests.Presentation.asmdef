@@ -1,0 +1,20 @@
+{
+    "name": "Supplement.Tests.Presentation",
+    "rootNamespace": "Supplement.Tests.Presentation",
+    "references": [
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:41261d631a9f02542ba248f84bf54981",
+        "GUID:811edc71325a41d4c81e4bc19a1fc6de",
+        "GUID:619451fd5e12658408c1bba68b29ad7a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

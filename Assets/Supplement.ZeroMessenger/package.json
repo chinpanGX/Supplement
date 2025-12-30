@@ -1,0 +1,17 @@
+﻿{
+  "name": "com.chinpangx.supplement.zeromessenger",
+  "version": "1.0.0",
+  "displayName": "Supplement ZeroMessenger",
+  "description": "Supplement Module ZeroMessenger Integration",
+  "dependencies": {
+    "com.chinpangx.supplement": "1.0.0",
+  },
+  "keywords": [
+    "unity",
+    "ZeroMessenger Integration",
+    "Messaging"
+  ],
+  "author": {
+    "name": "shota.deai"
+  }
+}
