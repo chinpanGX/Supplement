@@ -4,7 +4,7 @@
   "displayName": "Supplement ZeroMessenger",
   "description": "Supplement Module ZeroMessenger Integration",
   "dependencies": {
-    "com.chinpangx.supplement": "1.0.0",
+    "com.chinpangx.supplement": "1.0.0"
   },
   "keywords": [
     "unity",
