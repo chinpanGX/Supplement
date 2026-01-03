@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using Supplement.Tests.Presentation.Abstractions;
+using TMPro;
 using UnityEngine;
 using VContainer;
 
@@ -7,6 +8,9 @@ namespace Supplement.Tests.Presentation
 {
     public class SamplePopupView : MonoBehaviour, IView
     {
+        [SerializeField] TextMeshProUGUI titleText;
+        [SerializeField] TextMeshProUGUI messageText;
+        
         private IPresenter presenter;
         
         [Inject]
@@ -17,6 +21,11 @@ namespace Supplement.Tests.Presentation
         
         public UniTask RenderAsync(ViewDto dto)
         {
+            if (dto is SamplePopupDto popupDto)
+            {
+                titleText.text = popupDto.Title;
+                messageText.text = popupDto.Message;
+            }
             return UniTask.CompletedTask;
         }
         
