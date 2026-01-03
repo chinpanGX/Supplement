@@ -2,10 +2,16 @@ using System.Collections;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using Supplement.Core.Abstractions;
 using Supplement.Loader.Abstractions;
+using Supplement.Tests.Application;
+using Supplement.Tests.Application.Abstractions;
+using Supplement.Tests.Domain;
+using Supplement.Tests.Infrastructure;
 using VContainer;
 using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
+using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityEngine.TestTools;
 using VContainer.Unity;
@@ -25,23 +31,17 @@ namespace Supplement.Tests.PlayMode
             builder.Register<ISamplePopupDtoFactory, SamplePopupDtoFactory>(Lifetime.Scoped);
             builder.Register<IPresenter, SamplePopupPresenter>(Lifetime.Transient);
             var rootContainer = builder.Build();
-
             var assetLoader = rootContainer.Resolve<IAssetLoader>();
-            yield return SetUpAsync(assetLoader).ToCoroutine();
-            
-            // dtoの生成
+            yield return TestHelper.SetupEnvAsync(assetLoader, cts.Token).ToCoroutine();
+
             var dtoFactory = rootContainer.Resolve<ISamplePopupDtoFactory>();
             var dto = dtoFactory.CreateSamplePopupDto();
-
-            var popupScope = rootContainer.CreateScope(scopeBuilder => { scopeBuilder.RegisterInstance<ViewDto>(dto); }
-            );
-
-
+            var popupScope = rootContainer.CreateScope(x => { x.RegisterInstance<ViewDto>(dto); });
             yield return TestRenderSamplePopupAsync(popupScope, assetLoader).ToCoroutine();
 
             popupScope.Dispose();
         }
-        
+
         [OneTimeTearDown]
         public void TearDown()
         {
@@ -69,17 +69,6 @@ namespace Supplement.Tests.PlayMode
             var obj = scopedObjectResolver.Instantiate(handle.Result);
             var component = obj.GetComponent<SamplePopupView>();
             return component;
-        }
-
-        private async UniTask SetUpAsync(IAssetLoader assetLoader)
-        {
-            var handle =
-                await assetLoader.LoadAssetAsync<GameObject>("Assets/Supplement.Tests/Addressables/Env.prefab",
-                    cts.Token
-                );
-            
-            handle.AddTo(cts.Token);
-            Object.Instantiate(handle.Result);
         }
     }
 }

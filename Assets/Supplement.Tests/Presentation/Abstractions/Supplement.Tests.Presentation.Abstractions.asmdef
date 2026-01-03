@@ -3,7 +3,8 @@
     "rootNamespace": "Supplement.Tests.Presentation.Abstractions",
     "references": [
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
-        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc"
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:41261d631a9f02542ba248f84bf54981"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

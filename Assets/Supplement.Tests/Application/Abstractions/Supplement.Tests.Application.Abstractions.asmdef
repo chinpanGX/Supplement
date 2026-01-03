@@ -1,9 +1,7 @@
 {
-    "name": "Supplement.Tests.Application",
-    "rootNamespace": "Supplement.Tests.Application",
+    "name": "Supplement.Tests.Application.Abstractions",
+    "rootNamespace": "Supplement.Tests.Application.Abstractions",
     "references": [
-        "GUID:3fd9a52b606c6f740bf7bc0f57474193",
-        "GUID:2b2fcbf7419b59e489aeb88997c05044",
         "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],

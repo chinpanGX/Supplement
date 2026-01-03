@@ -1,4 +1,6 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
@@ -27,6 +29,11 @@ namespace Supplement.Tests.Infrastructure
             }
 
             return entity;
+        }
+        
+        public IReadOnlyList<ItemEntity> GetAll()
+        {
+            return Entities.Values.ToList();
         }
 
         public void Begin()
