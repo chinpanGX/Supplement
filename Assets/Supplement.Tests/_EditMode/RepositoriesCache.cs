@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using VContainer;
 
 namespace Supplement.Tests

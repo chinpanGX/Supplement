@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using VContainer;
 using Supplement.Tests.Domain;
 using Supplement.Tests.Infrastructure;

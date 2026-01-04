@@ -1,6 +1,6 @@
 ﻿#if USE_VCONTAINER
 using Supplement.Core;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using Supplement.Loader.Abstractions;
 using Supplement.Loader.AddressablesLoader;
 using Supplement.Unity.IO;

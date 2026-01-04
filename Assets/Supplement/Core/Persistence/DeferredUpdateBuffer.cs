@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Supplement.Core.Abstractions;
 
 namespace Supplement.Core
 {

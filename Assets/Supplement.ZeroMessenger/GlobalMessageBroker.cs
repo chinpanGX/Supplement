@@ -1,5 +1,5 @@
 using System;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using ZeroMessenger;
 
 namespace Supplement.ZeroMessenger

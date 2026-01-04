@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Supplement.Core.Abstractions
+namespace Supplement.Core
 {
     public interface IMessageBroker
     {

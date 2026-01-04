@@ -1,5 +1,5 @@
 ﻿using Supplement.Core;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using Supplement.Tests.Presentation.Abstractions;
 using Supplement.Unity;
 using TMPro;

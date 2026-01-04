@@ -1,7 +1,7 @@
 ﻿using System.Threading;
 using Cysharp.Threading.Tasks;
 
-namespace Supplement.Core.Abstractions
+namespace Supplement.Core
 {
     public interface IFileStorageService
     {

@@ -2,7 +2,7 @@
 using System.IO;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using UnityEngine;
 
 namespace Supplement.Unity.IO

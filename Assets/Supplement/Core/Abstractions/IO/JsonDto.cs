@@ -1,6 +1,6 @@
 using System;
 
-namespace Supplement.Core.Abstractions
+namespace Supplement.Core
 {
     /// <summary>
     ///     JSONデータを保持するための汎用的なデータ転送オブジェクトクラス。

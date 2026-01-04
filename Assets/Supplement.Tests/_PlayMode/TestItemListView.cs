@@ -2,7 +2,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using Supplement.Loader.Abstractions;
 using Supplement.Tests.Application;
 using Supplement.Tests.Application.Abstractions;

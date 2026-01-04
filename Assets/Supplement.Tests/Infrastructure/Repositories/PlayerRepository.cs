@@ -1,7 +1,7 @@
 ﻿using System.Threading;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
-using Supplement.Core.Abstractions;
+using Supplement.Core;
 using Supplement.Tests.Domain;
 
 namespace Supplement.Tests.Infrastructure
