@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Supplement.Loader.Abstractions;
@@ -42,8 +43,73 @@ namespace Supplement.Loader.AddressablesLoader
             }
         }
 
+        public async UniTask<IReadOnlyList<IAssetHandle<T>>> LoadAssetsByLabelAsync<T>(string label,
+            CancellationToken token) where T : Object
+        {
+            if (string.IsNullOrEmpty(label))
+            {
+                throw new ArgumentNullException(nameof(label));
+            }
+
+            try
+            {
+                var locationsHandle = Addressables.LoadResourceLocationsAsync(label, typeof(T));
+                var locations = await locationsHandle.ToUniTask(cancellationToken: token);
+                Addressables.Release(locationsHandle);
+
+                if (locations.Count == 0)
+                {
+                    return Array.Empty<IAssetHandle<T>>();
+                }
+
+                var handles = new AsyncOperationHandle<T>[locations.Count];
+                for (var i = 0; i < locations.Count; i++)
+                {
+                    handles[i] = Addressables.LoadAssetAsync<T>(locations[i]);
+                }
+
+                try
+                {
+                    await UniTask.WhenAll(Array.ConvertAll(handles,
+                        h => h.ToUniTask(cancellationToken: token)));
+                }
+                catch
+                {
+                    foreach (var handle in handles)
+                    {
+                        if (handle.IsValid())
+                        {
+                            Addressables.Release(handle);
+                        }
+                    }
+                    throw;
+                }
+
+                var results = new List<IAssetHandle<T>>(handles.Length);
+                foreach (var handle in handles)
+                {
+                    if (handle.Status != AsyncOperationStatus.Succeeded)
+                    {
+                        throw new AssetLoadFailedException($"Failed to load asset. label: {label}");
+                    }
+                    results.Add(new AddressablesAssetHandle<T>(handle));
+                }
+                return results;
+            }
+            catch (OperationCanceledException e)
+            {
+                Debug.LogWarning($"LoadAssetsByLabelAsync was canceled. label: {label}\n{e}");
+                throw;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to load assets by label. label: {label}\n{e}");
+                throw;
+            }
+        }
+
         public async UniTask<ISceneHandle> LoadSceneAsync(string address, bool additive, bool activateOnLoad,
-            CancellationToken token)
+            CancellationToken token, IProgress<float> progress = null)
         {
             if (string.IsNullOrEmpty(address))
             {
@@ -56,7 +122,7 @@ namespace Supplement.Loader.AddressablesLoader
                     additive ? LoadSceneMode.Additive : LoadSceneMode.Single,
                     activateOnLoad
                 );
-                await handle.Task.AsUniTask();
+                await handle.ToUniTask(progress, cancellationToken: token);
                 if (handle.Status != AsyncOperationStatus.Succeeded)
                 {
                     throw new AssetLoadFailedException($"Failed to load scene. address: {address}");
