@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
 using UnityEngine;
@@ -10,28 +9,24 @@ namespace Supplement.Unity.IO
     {
         private const string DefaultDirectoryName = "SaveData";
         
-        private readonly IFileReader reader;
-        private readonly IFileWriter writer;
-        private readonly IFileFormatProvider fileFormatProvider;
+        private readonly EncryptedFileAccessor fileAccessor;
         private string directoryName;
 
-        public FileStorageService(IFileReader reader, IFileWriter writer, IFileFormatProvider fileFormatProvider)
+        public FileStorageService(EncryptedFileAccessor fileAccessor)
         {
-            this.reader = reader;
-            this.writer = writer;
-            this.fileFormatProvider = fileFormatProvider;
+            this.fileAccessor = fileAccessor;
         }
 
-        public UniTask<T> ReadAsync<T>(string fileKey, string password, CancellationToken token)
+        public UniTask<T> ReadAsync<T>(string fileKey, string password)
         {
             var path = GetFilePath(fileKey);
-            return reader.ReadAsync<T>(path, password, token);
+            return fileAccessor.ReadAsync<T>(path, password);
         }
 
-        public UniTask WriteAsync<T>(string fileKey, T data, string password, CancellationToken token)
+        public UniTask WriteAsync<T>(string fileKey, T data, string password)
         {
             var path = GetFilePath(fileKey);
-            return writer.WriteAsync(path, data, password, token);
+            return fileAccessor.WriteAsync(path, data, password);
         }
         
         public bool Exists(string fileKey)
@@ -58,10 +53,7 @@ namespace Supplement.Unity.IO
         public void DeleteFile(string fileKey)
         {
             var path = GetFilePath(fileKey);
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
+            SafeFile.Delete(path);
         }
 
         private string GetFilePath(string fileKey)
@@ -70,7 +62,7 @@ namespace Supplement.Unity.IO
             {
                 directoryName = DefaultDirectoryName;
             }
-            var fileName = fileFormatProvider.GetFileName(fileKey);
+            var fileName = EncryptedBinFileFormatProvider.GetFileName(fileKey);
             return Path.Combine(Application.persistentDataPath, directoryName, fileName);
         }
     }

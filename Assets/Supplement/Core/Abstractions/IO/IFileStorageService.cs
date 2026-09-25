@@ -1,12 +1,11 @@
-﻿using System.Threading;
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 
 namespace Supplement.Core
 {
     public interface IFileStorageService
     {
-        UniTask<T> ReadAsync<T>(string fileKey, string password, CancellationToken token);
-        UniTask WriteAsync<T>(string fileKey, T data, string password, CancellationToken token);
+        UniTask<T> ReadAsync<T>(string fileKey, string password);
+        UniTask WriteAsync<T>(string fileKey, T data, string password);
         bool Exists(string fileKey);
         
         void SetDirectoryName(string targetDirectoryName);

@@ -1,6 +1,4 @@
-﻿using System.Threading;
-using Cysharp.Threading.Tasks;
-using Supplement.Core;
+﻿using Cysharp.Threading.Tasks;
 using Supplement.Core;
 using Supplement.Tests.Domain;
 
@@ -33,9 +31,9 @@ namespace Supplement.Tests.Infrastructure
             deferredUpdateBuffer.Begin();
         }
 
-        public UniTask CommitAsync(CancellationToken token)
+        public UniTask CommitAsync()
         {
-            return deferredUpdateBuffer.CommitAsync(token);
+            return deferredUpdateBuffer.CommitAsync();
         }
 
         public void Rollback()
@@ -43,7 +41,7 @@ namespace Supplement.Tests.Infrastructure
             deferredUpdateBuffer.Rollback();
         }
 
-        public async UniTask UpdateAsync(PlayerEntity entity, CancellationToken token)
+        public async UniTask UpdateAsync(PlayerEntity entity)
         {
             if (deferredUpdateBuffer.IsActive)
             {
@@ -51,9 +49,8 @@ namespace Supplement.Tests.Infrastructure
             }
             else
             {
-                token.ThrowIfCancellationRequested();
                 UpdateCore(entity);
-                await SaveAsync(token);
+                await SaveAsync();
             }
         }
 

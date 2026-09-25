@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.IO;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Core;
@@ -17,30 +16,16 @@ namespace Supplement.Tests
         private IPlayerRepository playerRepository;
         private IItemRepository itemRepository;
         private RepositoriesCache repositoriesCache;
-        private CancellationTokenSource cts;
 
-        [UnityTest]
-        public IEnumerator TestSaveAndLoad()
-        {
-            var builder = new ContainerBuilder();
-            builder.RegisterJsonFileStorage();
-            RegisterDependencies(builder);
-            cts?.Cancel();
-            cts = new CancellationTokenSource();
-            yield return RunTestCode().ToCoroutine();
-        }
-        
         [UnityTest]
         public IEnumerator TestEncryptedSaveAndLoad()
         {
             var builder = new ContainerBuilder();
             builder.RegisterEncryptedFileStorage();
             RegisterDependencies(builder);
-            cts?.Cancel();
-            cts = new CancellationTokenSource();
             yield return RunTestCode().ToCoroutine();
         }
-        
+
         [TearDown]
         public void AfterTest()
         {
@@ -55,8 +40,6 @@ namespace Supplement.Tests
             {
                 Directory.Delete(path, true);
             }
-            cts?.Cancel();
-            cts?.Dispose();
         }
         
         private void RegisterDependencies(ContainerBuilder builder)
@@ -78,24 +61,24 @@ namespace Supplement.Tests
         
         private async UniTask RunTestCode()
         {
-            await repositoriesCache.LoadAllAsync(cts.Token);
+            await repositoriesCache.LoadAllAsync();
             var newPlayer = new PlayerEntity("player_001", 1);
-            await playerRepository.UpdateAsync(newPlayer, cts.Token);
+            await playerRepository.UpdateAsync(newPlayer);
             var loadedPlayer = playerRepository.GetById("player_001");
             Assert.AreEqual(1, loadedPlayer.Level);
             try
             {
                 playerRepository.Begin();
                 itemRepository.Begin();
-                    
-                var updatedPlayer = new PlayerEntity("player_001", 10);
-                await playerRepository.UpdateAsync(updatedPlayer, cts.Token);
-                    
-                var newItem = new ItemEntity(1001, 10);
-                await itemRepository.UpdateAsync(newItem, cts.Token);
 
-                await itemRepository.CommitAsync(cts.Token);
-                await playerRepository.CommitAsync(cts.Token);
+                var updatedPlayer = new PlayerEntity("player_001", 10);
+                await playerRepository.UpdateAsync(updatedPlayer);
+
+                var newItem = new ItemEntity(1001, 10);
+                await itemRepository.UpdateAsync(newItem);
+
+                await itemRepository.CommitAsync();
+                await playerRepository.CommitAsync();
             }
             catch (Exception e)
             {
@@ -112,12 +95,12 @@ namespace Supplement.Tests
 
             {
                 itemRepository.Clear();
-                await repositoriesCache.LoadAllAsync(cts.Token);
-                    
+                await repositoriesCache.LoadAllAsync();
+
                 var reloadedPlayer = playerRepository.GetById("player_001");
                 Assert.AreEqual(10, reloadedPlayer.Level);
                 var reloadedItem = itemRepository.GetById(1001);
-                Assert.AreEqual(10, reloadedItem.Amount);    
+                Assert.AreEqual(10, reloadedItem.Amount);
             }
         }
     }

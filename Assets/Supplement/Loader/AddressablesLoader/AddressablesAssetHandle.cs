@@ -28,7 +28,7 @@ namespace Supplement.Loader.AddressablesLoader
         {
             if (disposed)
             {
-                throw new ObjectDisposedException(nameof(AddressablesAssetHandle<T>), "It has already been destroyed.");
+                return;
             }
 
             if (Handle.IsValid())

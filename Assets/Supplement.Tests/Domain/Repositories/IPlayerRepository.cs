@@ -1,5 +1,4 @@
-﻿using System.Threading;
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 
 namespace Supplement.Tests.Domain
 {
@@ -7,8 +6,8 @@ namespace Supplement.Tests.Domain
     {
         PlayerEntity GetById(string uniqueId);
         void Begin();
-        UniTask CommitAsync(CancellationToken token);
+        UniTask CommitAsync();
         void Rollback();
-        UniTask UpdateAsync(PlayerEntity entity, CancellationToken token);
+        UniTask UpdateAsync(PlayerEntity entity);
     }
 }

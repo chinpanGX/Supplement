@@ -17,30 +17,18 @@ public static class _DIExtensions
         var aesOption = AesOptions.CreateDefault();
         builder.RegisterInstance(aesOption);
         builder.Register<IFileStorageService, FileStorageService>(Lifetime.Singleton);
-        builder.Register<IFileReader, EncryptedFileReader>(Lifetime.Singleton);
-        builder.Register<IFileWriter, EncryptedFileWriter>(Lifetime.Singleton);
-        builder.Register<IFileFormatProvider, EncryptedBinFileFormatProvider>(Lifetime.Singleton);
-        builder.Register<ICryptographyExecutor, CryptographyExecutor>(Lifetime.Singleton);
-        builder.Register<ICryptoAlgorithm, AesCryptoAlgorithm>(Lifetime.Singleton);
-    }
-    
-    public static void RegisterEncryptedFileStorageWithCustomAesOptions(this IContainerBuilder builder, AesOptions aesOptions)
-    {
-        builder.RegisterInstance(aesOptions);
-        builder.Register<IFileStorageService, FileStorageService>(Lifetime.Singleton);
-        builder.Register<IFileReader, EncryptedFileReader>(Lifetime.Singleton);
-        builder.Register<IFileWriter, EncryptedFileWriter>(Lifetime.Singleton);
-        builder.Register<IFileFormatProvider, EncryptedBinFileFormatProvider>(Lifetime.Singleton);
+        builder.Register<EncryptedFileAccessor>(Lifetime.Singleton);
         builder.Register<ICryptographyExecutor, CryptographyExecutor>(Lifetime.Singleton);
         builder.Register<ICryptoAlgorithm, AesCryptoAlgorithm>(Lifetime.Singleton);
     }
 
-    public static void RegisterJsonFileStorage(this IContainerBuilder builder)
+    public static void RegisterEncryptedFileStorageWithCustomAesOptions(this IContainerBuilder builder, AesOptions aesOptions)
     {
+        builder.RegisterInstance(aesOptions);
         builder.Register<IFileStorageService, FileStorageService>(Lifetime.Singleton);
-        builder.Register<IFileReader, JsonFileReader>(Lifetime.Singleton);
-        builder.Register<IFileWriter, JsonFileWriter>(Lifetime.Singleton);
-        builder.Register<IFileFormatProvider, JsonFileFormatProvider>(Lifetime.Singleton);
+        builder.Register<EncryptedFileAccessor>(Lifetime.Singleton);
+        builder.Register<ICryptographyExecutor, CryptographyExecutor>(Lifetime.Singleton);
+        builder.Register<ICryptoAlgorithm, AesCryptoAlgorithm>(Lifetime.Singleton);
     }
 }
 #endif

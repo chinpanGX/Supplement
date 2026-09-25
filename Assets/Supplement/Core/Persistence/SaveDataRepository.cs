@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 
 namespace Supplement.Core
@@ -21,45 +20,42 @@ namespace Supplement.Core
 
         protected abstract string Password { get; }
 
-        public UniTask UpdateAsync(List<TEntity> entities, CancellationToken token)
+        public UniTask UpdateAsync(List<TEntity> entities)
         {
-            token.ThrowIfCancellationRequested();
-
             foreach (var entity in entities)
             {
                 UpdateCore(entity);
             }
 
-            return SaveAsync(token);
+            return SaveAsync();
         }
 
         public bool IsCreated => fileStorageService.Exists(FileKey);
 
-        public async UniTask LoadAsync(CancellationToken token)
+        public async UniTask LoadAsync()
         {
             if (!IsCreated)
             {
                 return;
             }
 
-            token.ThrowIfCancellationRequested();
+            var dtos = await fileStorageService.ReadAsync<List<TDto>>(FileKey, Password);
 
-            var dtos = await fileStorageService.ReadAsync<List<TDto>>(FileKey, Password, token);
-
-            Entities.Clear();
-
+            var entities = new List<TEntity>(dtos.Count);
             var sb = new StringBuilder();
+            List<Exception> exceptions = null;
+
             foreach (var dto in dtos)
             {
-                token.ThrowIfCancellationRequested();
-
                 try
                 {
-                    var entity = ConvertToEntity(dto);
-                    UpdateCore(entity);
+                    entities.Add(ConvertToEntity(dto));
                 }
                 catch (Exception e)
                 {
+                    exceptions ??= new List<Exception>();
+                    exceptions.Add(e);
+
                     sb.AppendFormat(
                         "[{0}] {1} ({2}::ConvertToEntity)",
                         e.GetType().Name,
@@ -70,28 +66,32 @@ namespace Supplement.Core
                 }
             }
 
-            if (sb.Length > 0)
+            if (exceptions is not null)
             {
                 throw new SaveDataRepositoryException(
-                    $"Data corruption detected in {GetType().Name}{Environment.NewLine}{sb}"
+                    $"Data corruption detected in {GetType().Name}{Environment.NewLine}{sb}",
+                    new AggregateException(exceptions)
                 );
+            }
+
+            Entities.Clear();
+            foreach (var entity in entities)
+            {
+                UpdateCore(entity);
             }
         }
 
-        public async UniTask SaveAsync(CancellationToken token)
+        public async UniTask SaveAsync()
         {
-            token.ThrowIfCancellationRequested();
-            
             fileStorageService.CreateDirectoryIfNotExists(FileKey);
 
             var dtos = new List<TDto>(Entities.Count);
             foreach (var entity in Entities.Values)
             {
-                token.ThrowIfCancellationRequested();
                 dtos.Add(ConvertToDto(entity));
             }
 
-            await fileStorageService.WriteAsync(FileKey, dtos, Password, token);
+            await fileStorageService.WriteAsync(FileKey, dtos, Password);
         }
 
         public void Delete()

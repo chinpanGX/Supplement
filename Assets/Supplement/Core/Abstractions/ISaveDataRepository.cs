@@ -1,4 +1,3 @@
-using System.Threading;
 using Cysharp.Threading.Tasks;
 
 namespace Supplement.Core
@@ -13,12 +12,12 @@ namespace Supplement.Core
         /// <summary>
         /// 保存データを非同期で読み込みます。
         /// </summary>
-        UniTask LoadAsync(CancellationToken token);
+        UniTask LoadAsync();
 
         /// <summary>
         /// 保存データを非同期で保存します。
         /// </summary>
-        UniTask SaveAsync(CancellationToken token);
+        UniTask SaveAsync();
 
         /// <summary>
         /// 削除します。

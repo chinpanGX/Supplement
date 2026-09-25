@@ -16,7 +16,7 @@ namespace Supplement
 
         public EquatableReadOnlyList()
         {
-            list = new();
+            list = new List<T>();
         }
 
         public EquatableReadOnlyList(int capacity)
@@ -24,7 +24,7 @@ namespace Supplement
             if (capacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity));
 
-            list = new(capacity);
+            list = new List<T>(capacity);
         }
 
         public EquatableReadOnlyList(IEnumerable<T> collection)
@@ -91,8 +91,4 @@ namespace Supplement
             return !(left == right);
         }
     }
-
-    #region Extensions
-
-    #endregion Extensions
 }

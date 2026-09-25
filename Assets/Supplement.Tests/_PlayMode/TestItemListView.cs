@@ -39,7 +39,7 @@ namespace Supplement.Tests.PlayMode
                 
                 // Set up test environment
                 rootContainer.Resolve<IFileStorageService>().SetDirectoryName("SupplementTest");
-                await rootContainer.Resolve<IItemService>().GrantDummyItemsAsync(cts.Token);
+                await rootContainer.Resolve<IItemService>().GrantDummyItemsAsync();
                 ObjectResolverGateway.Register(rootContainer);
                 var assetLoader = rootContainer.Resolve<IAssetLoader>();
                 await TestHelper.SetupEnvAsync(assetLoader, cts.Token);
@@ -74,7 +74,7 @@ namespace Supplement.Tests.PlayMode
                 
                 // Set up test environment
                 rootContainer.Resolve<IFileStorageService>().SetDirectoryName("SupplementTest");
-                await rootContainer.Resolve<IItemService>().GrantDummyItemsAsync(cts.Token);
+                await rootContainer.Resolve<IItemService>().GrantDummyItemsAsync();
                 var assetLoader = rootContainer.Resolve<IAssetLoader>();
                 await TestHelper.SetupEnvAsync(assetLoader, cts.Token);
 
@@ -112,7 +112,7 @@ namespace Supplement.Tests.PlayMode
         private void RegisterCommonServices(ContainerBuilder builder)
         {
             builder.RegisterAddressablesLoader();
-            builder.RegisterJsonFileStorage();
+            builder.RegisterEncryptedFileStorage();
             builder.Register<IItemRepository, ItemRepository>(Lifetime.Singleton);
             builder.Register<IItemService, ItemService>(Lifetime.Singleton);
             builder.Register<ISampleItemListViewDtoFactory, SampleItemListDtoFactory>(Lifetime.Scoped);
