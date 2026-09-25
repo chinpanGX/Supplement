@@ -17,5 +17,10 @@ namespace Supplement.Unity
         {
             return self.gameObject.GetOrAddComponent<T>();
         }
+
+        public static void SetActive(this Component self, bool active)
+        {
+            self.gameObject.SetActive(active);
+        }
     }
 }
