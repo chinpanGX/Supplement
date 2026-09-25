@@ -7,5 +7,9 @@ namespace Supplement.Core
         public SaveDataRepositoryException(string message) : base(message)
         {
         }
+
+        public SaveDataRepositoryException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
     }
 }

@@ -1,9 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
-using Supplement.Core;
 using Supplement.Core;
 using Supplement.Tests.Domain;
 
@@ -41,9 +39,9 @@ namespace Supplement.Tests.Infrastructure
             deferredUpdateBuffer.Begin();
         }
 
-        public ValueTask CommitAsync(CancellationToken token)
+        public ValueTask CommitAsync()
         {
-            return deferredUpdateBuffer.CommitAsync(token);
+            return deferredUpdateBuffer.CommitAsync();
         }
 
         public void Rollback()
@@ -51,7 +49,7 @@ namespace Supplement.Tests.Infrastructure
             deferredUpdateBuffer.Rollback();
         }
 
-        public async UniTask UpdateAsync(ItemEntity entity, CancellationToken token)
+        public async UniTask UpdateAsync(ItemEntity entity)
         {
             if (deferredUpdateBuffer.IsActive)
             {
@@ -59,9 +57,8 @@ namespace Supplement.Tests.Infrastructure
             }
             else
             {
-                token.ThrowIfCancellationRequested();
                 UpdateCore(entity);
-                await SaveAsync(token);
+                await SaveAsync();
             }
         }
         public void Clear()

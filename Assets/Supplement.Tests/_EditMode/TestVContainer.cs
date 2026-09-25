@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Tests.Application;
@@ -18,8 +17,6 @@ namespace Supplement.Tests.PlayMode
 {
     public class TestVContainer
     {
-        private CancellationTokenSource cts;
-        
         [Test]
         public void TestPopupScopeRunsPopupLifecycle()
         {
@@ -49,16 +46,15 @@ namespace Supplement.Tests.PlayMode
         [UnityTest]
         public IEnumerator TestCreateItemDtos()
         {
-            cts = new CancellationTokenSource();
             var builder = new ContainerBuilder();
-            builder.RegisterJsonFileStorage();
+            builder.RegisterEncryptedFileStorage();
             builder.RegisterAddressablesLoader();
             builder.Register<IItemRepository, ItemRepository>(Lifetime.Scoped);
             builder.Register<IItemService, ItemService>(Lifetime.Scoped);
             var rootContainer = builder.Build();
 
             var itemService = rootContainer.Resolve<IItemService>();
-            yield return itemService.GrantDummyItemsAsync(cts.Token).ToCoroutine();
+            yield return itemService.GrantDummyItemsAsync().ToCoroutine();
 
             var dtos = itemService.GetAll().ToEquatableReadOnlyList();
             
@@ -78,8 +74,6 @@ namespace Supplement.Tests.PlayMode
             {
                 Directory.Delete(path, true);
             }
-            cts?.Cancel();
-            cts?.Dispose();
         }
 
     }

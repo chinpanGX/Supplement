@@ -12,24 +12,26 @@ namespace Supplement.Tests.Presentation
         private readonly ISampleItemListViewDtoFactory dtoFactory;
         private readonly IItemService itemService;
         private readonly CancellationTokenSource cts = new();
+        private readonly DisposableBag subscriptions = new();
 
         private bool waitingForPop;
         private bool useGlobalMessaging;
         private IView view;
-        
+
         public SampleItemListPresenterVerGlobalMessaging(ViewDto viewDto, ISampleItemListViewDtoFactory dtoFactory,
             IMessageBroker messageBroker, IItemService itemService)
         {
             this.viewDto = viewDto;
             this.dtoFactory = dtoFactory;
             this.itemService = itemService;
-            
-            messageBroker.Subscribe<IncrementItemAmountMessage>(x => AddItemAmount(x.ItemId));
-            messageBroker.Subscribe<DecrementItemAmountMessage>(x => SubtractItemAmount(x.ItemId));
+
+            messageBroker.Subscribe<IncrementItemAmountMessage>(x => AddItemAmount(x.ItemId)).AddTo(subscriptions);
+            messageBroker.Subscribe<DecrementItemAmountMessage>(x => SubtractItemAmount(x.ItemId)).AddTo(subscriptions);
         }
-        
+
         public void Dispose()
         {
+            subscriptions.Dispose();
             cts?.Cancel();
             cts?.Dispose();
             view?.Dispose();
@@ -60,17 +62,17 @@ namespace Supplement.Tests.Presentation
         {
             async UniTaskVoid AddAsync()
             {
-                await itemService.AddAmountAsync(itemId, 1, cts.Token);
+                await itemService.AddAmountAsync(itemId, 1);
                 await RefreshAsync();
             }
             AddAsync().Forget();
         }
-        
+
         public void SubtractItemAmount(int itemId)
         {
             async UniTaskVoid SubtractAsync()
             {
-                await itemService.SubtractAmountAsync(itemId, 1, cts.Token);
+                await itemService.SubtractAmountAsync(itemId, 1);
                 await RefreshAsync();
             }
             SubtractAsync().Forget();

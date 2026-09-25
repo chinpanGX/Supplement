@@ -56,17 +56,17 @@ namespace Supplement.Tests.Presentation
         {
             async UniTaskVoid AddAsync()
             {
-                await itemService.AddAmountAsync(itemId, 1, cts.Token);
+                await itemService.AddAmountAsync(itemId, 1);
                 await RefreshAsync();
             }
             AddAsync().Forget();
         }
-        
+
         public void SubtractItemAmount(int itemId)
         {
             async UniTaskVoid SubtractAsync()
             {
-                await itemService.SubtractAmountAsync(itemId, 1, cts.Token);
+                await itemService.SubtractAmountAsync(itemId, 1);
                 await RefreshAsync();
             }
             SubtractAsync().Forget();

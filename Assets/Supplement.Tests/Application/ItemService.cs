@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using Supplement.Tests.Application.Abstractions;
 using Supplement.Tests.Domain;
@@ -9,20 +8,20 @@ namespace Supplement.Tests.Application
     public class ItemService : IItemService
     {
         private readonly IItemRepository itemRepository;
-        
+
         public ItemService(IItemRepository itemRepository)
         {
             this.itemRepository = itemRepository;
         }
 
-        public async UniTask GrantDummyItemsAsync(CancellationToken token)
+        public async UniTask GrantDummyItemsAsync()
         {
             itemRepository.Begin();
             for (var i = 1; i <= 10; i++)
             {
-                await itemRepository.UpdateAsync(new ItemEntity(1000 + i, 10), token);
+                await itemRepository.UpdateAsync(new ItemEntity(1000 + i, 10));
             }
-            await itemRepository.CommitAsync(token);
+            await itemRepository.CommitAsync();
         }
         
         public ItemDto GetById(int itemId)
@@ -42,18 +41,18 @@ namespace Supplement.Tests.Application
             return dtos;
         }
         
-        public UniTask AddAmountAsync(int itemId, int amount, CancellationToken token)
+        public UniTask AddAmountAsync(int itemId, int amount)
         {
             var entity = itemRepository.GetById(itemId);
             var updatedEntity = new ItemEntity(entity.Id, entity.Amount + amount);
-            return itemRepository.UpdateAsync(updatedEntity, token);
+            return itemRepository.UpdateAsync(updatedEntity);
         }
-        
-        public UniTask SubtractAmountAsync(int itemId, int amount, CancellationToken token)
+
+        public UniTask SubtractAmountAsync(int itemId, int amount)
         {
             var entity = itemRepository.GetById(itemId);
             var updatedEntity = new ItemEntity(entity.Id, entity.Amount - amount);
-            return itemRepository.UpdateAsync(updatedEntity, token);
+            return itemRepository.UpdateAsync(updatedEntity);
         }
     }
 }

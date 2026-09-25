@@ -177,7 +177,8 @@ namespace Supplement.Core
         private Aes CreateAes()
         {
             var aes = Aes.Create();
-            aes.BlockSize = options.KeySizeInBytes * 8;
+            // AESのブロックサイズは鍵長に関わらず仕様上常に128bit固定。KeySizeInBytesから設定すると
+            // 128bit鍵以外でCryptographicExceptionになるため、BlockSizeはAesのデフォルト値のままにする
             aes.KeySize = options.KeySizeInBytes * 8;
             aes.Mode = options.CipherMode;
             aes.Padding = options.PaddingMode;

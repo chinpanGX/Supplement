@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 
@@ -10,9 +9,9 @@ namespace Supplement.Tests.Domain
         ItemEntity GetById(int id);
         IReadOnlyList<ItemEntity> GetAll();
         void Begin();
-        ValueTask CommitAsync(CancellationToken token);
+        ValueTask CommitAsync();
         void Rollback();
-        UniTask UpdateAsync(ItemEntity entity, CancellationToken token);
+        UniTask UpdateAsync(ItemEntity entity);
         void Clear();
     }
 }

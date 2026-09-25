@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 
 namespace Supplement.Core
@@ -48,9 +47,8 @@ namespace Supplement.Core
         /// <summary>
         ///     バッファに積まれているEntityを一括で更新します。
         /// </summary>
-        public async UniTask CommitAsync(CancellationToken token)
+        public async UniTask CommitAsync()
         {
-            token.ThrowIfCancellationRequested();
             if (!IsActive)
             {
                 throw new DeferredUpdateBufferException(
@@ -59,7 +57,7 @@ namespace Supplement.Core
             }
 
             IsActive = false;
-            await bulkUpdater.UpdateAsync(pendingToUpdate, token);
+            await bulkUpdater.UpdateAsync(pendingToUpdate);
             pendingToUpdate.Clear();
         }
 
