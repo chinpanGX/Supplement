@@ -2,21 +2,15 @@ using System.Collections;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
-using Supplement.Core;
 using Supplement.Loader.Abstractions;
-using Supplement.Tests.Application;
-using Supplement.Tests.Application.Abstractions;
-using Supplement.Tests.Domain;
-using Supplement.Tests.Infrastructure;
 using VContainer;
 using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
-using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityEngine.TestTools;
 using VContainer.Unity;
 
-namespace Supplement.Tests.PlayMode
+namespace Supplement.Tests
 {
     public class TestShowSamplePopup
     {

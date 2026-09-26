@@ -14,8 +14,8 @@ namespace Supplement.Unity
     /// </remarks>
     public class RecycleRendererFactory : MonoBehaviour
     {
-        [SerializeField] private Transform parent;
         [SerializeField] private GameObject template;
+        [SerializeField] private Transform parent;
         
         private IObjectResolver objectResolver;
         private IDisposable disposable;

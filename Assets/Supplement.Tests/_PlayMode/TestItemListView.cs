@@ -17,7 +17,7 @@ using UnityEngine.TestTools;
 using VContainer;
 using VContainer.Unity;
 
-namespace Supplement.Tests.PlayMode
+namespace Supplement.Tests
 {
     public class TestItemListView
     {

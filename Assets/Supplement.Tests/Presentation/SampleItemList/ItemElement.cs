@@ -1,4 +1,5 @@
-﻿using Supplement.Core;
+﻿using Cysharp.Threading.Tasks;
+using Supplement.Core;
 using Supplement.Tests.Presentation.Abstractions;
 using Supplement.Unity;
 using TMPro;
@@ -7,7 +8,7 @@ using UnityEngine.UI;
 
 namespace Supplement.Tests.Presentation
 {
-    internal class ItemElement : MonoBehaviour, IRenderable<ItemDto>
+    internal class ItemElement : MonoBehaviour, IAsyncRenderable<ItemDto>
     {
         [SerializeField] private TextMeshProUGUI text;
         [SerializeField] private Button addButton;
@@ -17,7 +18,7 @@ namespace Supplement.Tests.Presentation
 
         private IMessageBroker messageBroker;
 
-        public void Render(ItemDto dto)
+        public UniTask RenderAsync(ItemDto dto)
         {
             this.dto = dto;
             if (text != null)
@@ -33,6 +34,7 @@ namespace Supplement.Tests.Presentation
             {
                 SetupHierarchyMessageBroker();
             }
+            return UniTask.CompletedTask;
         }
 
         private void SetupGlobalMessaging()

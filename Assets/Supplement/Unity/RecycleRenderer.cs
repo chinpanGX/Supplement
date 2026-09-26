@@ -27,6 +27,9 @@ namespace Supplement.Unity
         private readonly List<TRenderable> activeRenderables = new();
         private readonly ObjectPool<TRenderable> pool;
 
+        private EquatableReadOnlyList<TDto> previousDtos;
+        private bool disposed;
+
         internal RecycleRenderer(IObjectResolver objectResolver, GameObject template, Transform parent)
         {
             this.objectResolver = objectResolver;
@@ -39,6 +42,17 @@ namespace Supplement.Unity
 
         public async UniTask RenderAsync(EquatableReadOnlyList<TDto> dtos)
         {
+            if (disposed)
+            {
+                throw new ObjectDisposedException(nameof(RecycleRenderer<TRenderable, TDto>));
+            }
+
+            if (dtos == previousDtos)
+            {
+                return;
+            }
+            previousDtos = dtos;
+
             while (activeRenderables.Count > dtos.Count)
             {
                 var lastIndex = activeRenderables.Count - 1;
@@ -66,6 +80,17 @@ namespace Supplement.Unity
 
         public void Dispose()
         {
+            if (disposed)
+            {
+                return;
+            }
+            disposed = true;
+
+            foreach (var renderable in activeRenderables)
+            {
+                pool.Release(renderable);
+            }
+            activeRenderables.Clear();
             pool.Dispose();
         }
 
