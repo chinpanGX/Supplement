@@ -10,7 +10,7 @@ using Supplement.Tests.Domain;
 using Supplement.Tests.Infrastructure;
 using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
-using Supplement.VContainer;
+using Supplement.Unity;
 using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityEngine.TestTools;

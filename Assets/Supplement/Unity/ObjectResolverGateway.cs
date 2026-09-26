@@ -1,8 +1,7 @@
-﻿#if USE_VCONTAINER
-using System;
+﻿using System;
 using VContainer;
 
-namespace Supplement.VContainer
+namespace Supplement.Unity
 {
     /// <summary>
     /// VContainer の <see cref="IObjectResolver"/> への静的ゲートウェイ。
@@ -83,4 +82,3 @@ namespace Supplement.VContainer
         }
     }
 }
-#endif

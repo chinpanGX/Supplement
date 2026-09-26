@@ -1,11 +1,9 @@
 ﻿using Supplement.Core;
-using Supplement.Core;
 using Supplement.Tests.Presentation.Abstractions;
 using Supplement.Unity;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using Supplement.VContainer;
 
 namespace Supplement.Tests.Presentation
 {
