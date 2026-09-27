@@ -30,4 +30,13 @@ public static class _DIExtensions
         builder.Register<IDebugSettingsStore, PlayerPrefsDebugSettingsStore>(Lifetime.Singleton);
         builder.Register<IDebugOverlayState, BackKeyDebugOverlayState>(Lifetime.Singleton);
     }
+
+    /// <summary>
+    /// <see cref="BootInitializer"/>を登録する。初期化タスクは<c>As&lt;IBootInitializationTask&gt;()</c>でアプリ側から登録し、
+    /// アプリ側のエントリーポイントから<see cref="BootInitializer.RunAsync"/>を呼ぶ。
+    /// </summary>
+    public static void RegisterBootInitializer(this IContainerBuilder builder)
+    {
+        builder.Register<BootInitializer>(Lifetime.Singleton);
+    }
 }
