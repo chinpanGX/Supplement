@@ -1,0 +1,19 @@
+{
+    "name": "Supplement.Unity.Editor",
+    "rootNamespace": "Supplement.Unity.Editor",
+    "references": [
+        "GUID:4b7a874a3b17d434aaecc3633e34abb6",
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

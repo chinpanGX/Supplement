@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Core;
 using Supplement.Loader.Abstractions;
+using Supplement.Loader.AddressablesLoader;
 using Supplement.Tests.Application;
 using Supplement.Tests.Application.Abstractions;
 using Supplement.Tests.Domain;
@@ -111,7 +112,7 @@ namespace Supplement.Tests
         
         private void RegisterCommonServices(ContainerBuilder builder)
         {
-            builder.RegisterAddressablesLoader();
+            builder.Register<IAssetLoader, AddressablesAssetLoader>(Lifetime.Singleton);
             builder.RegisterEncryptedFileStorage();
             builder.Register<IItemRepository, ItemRepository>(Lifetime.Singleton);
             builder.Register<IItemService, ItemService>(Lifetime.Singleton);

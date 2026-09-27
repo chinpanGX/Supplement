@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Loader.Abstractions;
+using Supplement.Loader.AddressablesLoader;
 using VContainer;
 using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
@@ -21,7 +22,7 @@ namespace Supplement.Tests
         {
             cts = new CancellationTokenSource();
             var builder = new ContainerBuilder();
-            builder.RegisterAddressablesLoader();
+            builder.Register<IAssetLoader, AddressablesAssetLoader>(Lifetime.Scoped);
             builder.Register<ISamplePopupDtoFactory, SamplePopupDtoFactory>(Lifetime.Scoped);
             builder.Register<IPresenter, SamplePopupPresenter>(Lifetime.Transient);
             var rootContainer = builder.Build();

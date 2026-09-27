@@ -2,6 +2,8 @@
 using System.IO;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using Supplement.Loader.Abstractions;
+using Supplement.Loader.AddressablesLoader;
 using Supplement.Tests.Application;
 using Supplement.Tests.Application.Abstractions;
 using Supplement.Tests.Domain;
@@ -47,7 +49,6 @@ namespace Supplement.Tests
         {
             var builder = new ContainerBuilder();
             builder.RegisterEncryptedFileStorage();
-            builder.RegisterAddressablesLoader();
             builder.Register<IItemRepository, ItemRepository>(Lifetime.Scoped);
             builder.Register<IItemService, ItemService>(Lifetime.Scoped);
             var rootContainer = builder.Build();
