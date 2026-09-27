@@ -1,9 +1,13 @@
-﻿using Cysharp.Threading.Tasks;
-using Supplement.Core;
+using Cysharp.Threading.Tasks;
 
 namespace Supplement.Unity
 {
-    public interface IAsyncRenderable<T> : IRenderable
+    public interface IAsyncRenderable
+    {
+        
+    }
+    
+    public interface IAsyncRenderable<T>
     {
         UniTask RenderAsync(T dto);
     }

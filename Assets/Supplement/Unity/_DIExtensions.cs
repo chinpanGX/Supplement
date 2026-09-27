@@ -1,17 +1,10 @@
-﻿#if USE_VCONTAINER
 using Supplement.Core;
-using Supplement.Loader.Abstractions;
-using Supplement.Loader.AddressablesLoader;
+using Supplement.Unity;
 using Supplement.Unity.IO;
 using VContainer;
 
 public static class _DIExtensions
 {
-    public static void RegisterAddressablesLoader(this IContainerBuilder builder)
-    {
-        builder.Register<AddressablesAssetLoader>(Lifetime.Singleton).As<IAssetLoader, ISceneLoader>();
-    }
-
     public static void RegisterEncryptedFileStorage(this IContainerBuilder builder)
     {
         var aesOption = AesOptions.CreateDefault();
@@ -30,5 +23,11 @@ public static class _DIExtensions
         builder.Register<ICryptographyExecutor, CryptographyExecutor>(Lifetime.Singleton);
         builder.Register<ICryptoAlgorithm, AesCryptoAlgorithm>(Lifetime.Singleton);
     }
+    
+    public static void RegisterBackKeyDebugOverlay(this IContainerBuilder builder)
+    {
+        builder.Register<BackKeyReceiverDebugRegistry>(Lifetime.Singleton);
+        builder.Register<IDebugSettingsStore, PlayerPrefsDebugSettingsStore>(Lifetime.Singleton);
+        builder.Register<IDebugOverlayState, BackKeyDebugOverlayState>(Lifetime.Singleton);
+    }
 }
-#endif

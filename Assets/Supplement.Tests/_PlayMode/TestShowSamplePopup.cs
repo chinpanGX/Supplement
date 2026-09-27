@@ -2,21 +2,16 @@ using System.Collections;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
-using Supplement.Core;
 using Supplement.Loader.Abstractions;
-using Supplement.Tests.Application;
-using Supplement.Tests.Application.Abstractions;
-using Supplement.Tests.Domain;
-using Supplement.Tests.Infrastructure;
+using Supplement.Loader.AddressablesLoader;
 using VContainer;
 using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
-using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityEngine.TestTools;
 using VContainer.Unity;
 
-namespace Supplement.Tests.PlayMode
+namespace Supplement.Tests
 {
     public class TestShowSamplePopup
     {
@@ -27,7 +22,7 @@ namespace Supplement.Tests.PlayMode
         {
             cts = new CancellationTokenSource();
             var builder = new ContainerBuilder();
-            builder.RegisterAddressablesLoader();
+            builder.Register<IAssetLoader, AddressablesAssetLoader>(Lifetime.Scoped);
             builder.Register<ISamplePopupDtoFactory, SamplePopupDtoFactory>(Lifetime.Scoped);
             builder.Register<IPresenter, SamplePopupPresenter>(Lifetime.Transient);
             var rootContainer = builder.Build();

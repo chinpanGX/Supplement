@@ -1,8 +1,9 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using Supplement.Loader.Abstractions;
+using Supplement.Loader.AddressablesLoader;
 using Supplement.Tests.Application;
 using Supplement.Tests.Application.Abstractions;
 using Supplement.Tests.Domain;
@@ -13,7 +14,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using VContainer;
 
-namespace Supplement.Tests.PlayMode
+namespace Supplement.Tests
 {
     public class TestVContainer
     {
@@ -48,7 +49,6 @@ namespace Supplement.Tests.PlayMode
         {
             var builder = new ContainerBuilder();
             builder.RegisterEncryptedFileStorage();
-            builder.RegisterAddressablesLoader();
             builder.Register<IItemRepository, ItemRepository>(Lifetime.Scoped);
             builder.Register<IItemService, ItemService>(Lifetime.Scoped);
             var rootContainer = builder.Build();

@@ -3,7 +3,7 @@ using Cysharp.Threading.Tasks;
 using Supplement.Loader.Abstractions;
 using UnityEngine;
 
-namespace Supplement.Tests.PlayMode
+namespace Supplement.Tests
 {
     internal class TestHelper
     {

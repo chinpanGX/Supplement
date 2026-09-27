@@ -4,20 +4,21 @@ using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Core;
 using Supplement.Loader.Abstractions;
+using Supplement.Loader.AddressablesLoader;
 using Supplement.Tests.Application;
 using Supplement.Tests.Application.Abstractions;
 using Supplement.Tests.Domain;
 using Supplement.Tests.Infrastructure;
 using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
-using Supplement.VContainer;
+using Supplement.Unity;
 using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityEngine.TestTools;
 using VContainer;
 using VContainer.Unity;
 
-namespace Supplement.Tests.PlayMode
+namespace Supplement.Tests
 {
     public class TestItemListView
     {
@@ -111,7 +112,7 @@ namespace Supplement.Tests.PlayMode
         
         private void RegisterCommonServices(ContainerBuilder builder)
         {
-            builder.RegisterAddressablesLoader();
+            builder.Register<IAssetLoader, AddressablesAssetLoader>(Lifetime.Singleton);
             builder.RegisterEncryptedFileStorage();
             builder.Register<IItemRepository, ItemRepository>(Lifetime.Singleton);
             builder.Register<IItemService, ItemService>(Lifetime.Singleton);
