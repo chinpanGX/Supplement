@@ -4,11 +4,11 @@ using System.IO;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Core;
-using Supplement.Unity.IO;
+using Supplement.Unity;
 using UnityEngine.TestTools;
 using VContainer;
 
-namespace Supplement.Tests
+namespace Supplement.Tests.EditMode
 {
     public class TestFileStorageService
     {

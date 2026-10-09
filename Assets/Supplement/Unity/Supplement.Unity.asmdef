@@ -5,7 +5,8 @@
         "GUID:f51ebe6a0ceec4240a699833d6309b23",
         "GUID:41261d631a9f02542ba248f84bf54981",
         "GUID:619451fd5e12658408c1bba68b29ad7a",
-        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc"
+        "GUID:b0214a6008ed146ff8f122a6a9c2f6cc",
+        "GUID:75469ad4d38634e559750d17036d5f7c"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -14,6 +15,12 @@
     "precompiledReferences": [],
     "autoReferenced": false,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0.0",
+            "define": "SUPPLEMENT_INPUT_SYSTEM"
+        }
+    ],
     "noEngineReferences": false
 }

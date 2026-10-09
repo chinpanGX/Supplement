@@ -1,4 +1,6 @@
-﻿namespace Supplement.Tests.Presentation.Abstractions
+using Supplement.Core;
+
+namespace Supplement.Tests.Presentation.Abstractions
 {
     public class ItemListViewDto : ViewDto
     {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Supplement.Core
 {
@@ -11,40 +12,56 @@ namespace Supplement.Core
     /// </remarks>
     public sealed class TapGuard
     {
-        private int guardCount;
-
-        public bool IsGuarding => guardCount > 0;
+        // 解除されていないハンドルのID。ハンドルは構造体でコピーされうるため、同じハンドル(とそのコピー)を
+        // 何度Disposeしても解除が1回だけになるよう、IDで管理する。
+        private readonly HashSet<int> activeHandleIds = new();
+        private int lastHandleId;
 
         /// <summary>
-        /// ガードを開始する。返却された<see cref="IDisposable"/>を破棄するとガードを終了する。
-        /// ネストして呼び出した場合は、すべての<see cref="IDisposable"/>が破棄されるまでガードが継続する。
+        /// 破棄されていないハンドルが1つでもあるかどうか。
         /// </summary>
-        public IDisposable BeginGuard()
+        public bool IsGuarding => activeHandleIds.Count > 0;
+
+        /// <summary>
+        /// ガードを開始する。返却されたハンドルを破棄するとガードを終了する。
+        /// ネストして呼び出した場合は、すべてのハンドルが破棄されるまでガードが継続する。
+        /// </summary>
+        /// <remarks>
+        /// ハンドルは構造体のため、<c>using</c>や<see cref="GuardHandle"/>型の変数で受ければGCアロケーションは起きない。
+        /// <see cref="IDisposable"/>型の変数で受けるとボックス化される。
+        /// </remarks>
+        public GuardHandle BeginGuard()
         {
-            guardCount++;
-            return new GuardHandle(this);
+            var id = unchecked(++lastHandleId);
+            activeHandleIds.Add(id);
+            return new GuardHandle(this, id);
         }
 
-        private void EndGuard()
+        private void EndGuard(int id)
         {
-            guardCount = Math.Max(0, guardCount - 1);
+            activeHandleIds.Remove(id);
         }
 
-        private sealed class GuardHandle : IDisposable
+        /// <summary>
+        /// <see cref="BeginGuard"/>が返すハンドル。破棄するとガードを1つ終える。
+        /// </summary>
+        public readonly struct GuardHandle : IDisposable
         {
             private readonly TapGuard owner;
-            private bool disposed;
+            private readonly int id;
 
-            public GuardHandle(TapGuard owner)
+            internal GuardHandle(TapGuard owner, int id)
             {
                 this.owner = owner;
+                this.id = id;
             }
 
+            /// <summary>
+            /// ガードを終える。同じハンドル(とそのコピー)を何度破棄しても、終えるのは1回だけ。
+            /// </summary>
             public void Dispose()
             {
-                if (disposed) return;
-                disposed = true;
-                owner.EndGuard();
+                owner?.EndGuard(id);
             }
         }
     }

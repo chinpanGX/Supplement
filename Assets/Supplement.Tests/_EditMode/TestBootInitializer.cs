@@ -1,14 +1,15 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Collections;
 using System.Threading;
+using System;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Core;
+using Supplement.Unity;
 using UnityEngine.TestTools;
 using VContainer;
 
-namespace Supplement.Tests
+namespace Supplement.Tests.EditMode
 {
     public class TestBootInitializer
     {

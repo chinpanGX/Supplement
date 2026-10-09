@@ -1,7 +1,8 @@
 ﻿using System.Linq;
+using ItemDto = Supplement.Tests.Presentation.Abstractions.ItemDto;
+using Supplement.Core;
 using Supplement.Tests.Application.Abstractions;
 using Supplement.Tests.Presentation.Abstractions;
-using ItemDto = Supplement.Tests.Presentation.Abstractions.ItemDto;
 
 namespace Supplement.Tests.Presentation
 {

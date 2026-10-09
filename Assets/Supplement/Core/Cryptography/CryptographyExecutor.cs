@@ -3,15 +3,24 @@ using System.Text;
 
 namespace Supplement.Core
 {
+    /// <summary>
+    /// 文字列をUTF-8のバイト列にし、<see cref="ICryptoAlgorithm"/>で暗号化・復号する。
+    /// </summary>
     public sealed class CryptographyExecutor : ICryptographyExecutor
     {
         private readonly ICryptoAlgorithm cryptoAlgorithm;
 
+        /// <summary>
+        /// 暗号化に使うアルゴリズムを指定して作る。
+        /// </summary>
+        /// <param name="cryptoAlgorithm">暗号化・復号に使うアルゴリズム。</param>
         public CryptographyExecutor(ICryptoAlgorithm cryptoAlgorithm)
         {
             this.cryptoAlgorithm = cryptoAlgorithm;
         }
 
+        /// <inheritdoc/>
+        /// <exception cref="ArgumentNullException"><paramref name="plainText"/>または<paramref name="password"/>がnull。</exception>
         public byte[] Encrypt(string plainText, string password)
         {
             if (plainText == null)
@@ -28,6 +37,8 @@ namespace Supplement.Core
             return cryptoAlgorithm.Encrypt(plainTextBytes, password);
         }
 
+        /// <inheritdoc/>
+        /// <exception cref="ArgumentNullException"><paramref name="cipherTextBytes"/>または<paramref name="password"/>がnull。</exception>
         public string Decrypt(byte[] cipherTextBytes, string password)
         {
             if (cipherTextBytes == null)

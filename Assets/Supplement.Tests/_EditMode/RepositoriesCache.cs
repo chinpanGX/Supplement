@@ -3,7 +3,7 @@ using Cysharp.Threading.Tasks;
 using Supplement.Core;
 using VContainer;
 
-namespace Supplement.Tests
+namespace Supplement.Tests.EditMode
 {
     internal class RepositoriesCache
     {
@@ -23,11 +23,11 @@ namespace Supplement.Tests
             }
         }
         
-        public void DeleteAll()
+        public async UniTask DeleteAllAsync()
         {
             foreach (var repo in Repositories)
             {
-                repo.Delete();
+                await repo.DeleteAsync();
             }
         }
     }

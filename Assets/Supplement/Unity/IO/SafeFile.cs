@@ -1,9 +1,8 @@
 using System;
 using System.IO;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 
-namespace Supplement.Unity.IO
+namespace Supplement.Unity
 {
     /// <summary>
     /// 一時ファイルに書き込んでから対象のファイルと置き換えることで、書き込み途中でプロセスが
@@ -14,6 +13,7 @@ namespace Supplement.Unity.IO
         private const string TempFileInfix = ".tmp";
         private const string TempFileSuffix = "~";
 
+        // リトライの待ちは実時間で数える。Time.timeScaleが0の間(一時停止中)に保存・削除しても、待ちが終わらなくならないようにするため。
         private const int MaxRetryCount = 10;
         private const int InitialRetryDelayMilliseconds = 100;
         private const int MaxRetryDelayMilliseconds = 5000;
@@ -47,7 +47,7 @@ namespace Supplement.Unity.IO
                 }
                 catch (UnauthorizedAccessException) when (attempt < MaxRetryCount)
                 {
-                    await UniTask.Delay(delay);
+                    await UniTask.Delay(delay, DelayType.Realtime);
                     delay = Math.Min(delay * 2, MaxRetryDelayMilliseconds);
                 }
             }
@@ -73,7 +73,7 @@ namespace Supplement.Unity.IO
                 }
                 catch (IOException) when (attempt < MaxRetryCount)
                 {
-                    await UniTask.Delay(delay);
+                    await UniTask.Delay(delay, DelayType.Realtime);
                     delay = Math.Min(delay * 2, MaxRetryDelayMilliseconds);
                 }
             }
@@ -101,16 +101,21 @@ namespace Supplement.Unity.IO
                 catch (IOException)
                 {
                 }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
 
-        public static void Delete(string filePath)
+        public static async UniTask DeleteAsync(string filePath)
         {
             if (!File.Exists(filePath))
             {
                 return;
             }
 
+            // 削除対象を他プロセス(セキュリティソフト等)が一時的に開いている可能性があるためリトライする。
+            // 待機中にメインスレッドを止めないよう、Thread.Sleepではなく非同期に待つ。
             var delay = InitialRetryDelayMilliseconds;
             for (var attempt = 1; ; attempt++)
             {
@@ -121,7 +126,7 @@ namespace Supplement.Unity.IO
                 }
                 catch (IOException) when (attempt < MaxRetryCount)
                 {
-                    Thread.Sleep(delay);
+                    await UniTask.Delay(delay, DelayType.Realtime);
                     delay = Math.Min(delay * 2, MaxRetryDelayMilliseconds);
                 }
             }

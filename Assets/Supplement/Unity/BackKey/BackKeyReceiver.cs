@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using Supplement.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using VContainer;
 
-[assembly: InternalsVisibleTo("Supplement.Unity.Editor")]
 namespace Supplement.Unity
 {
     /// <summary>
@@ -17,6 +14,7 @@ namespace Supplement.Unity
     /// <remarks>
     /// ナビゲーションスタックの知識は持たず、自身のRectTransformが画面上でRaycast的にトップにあるかどうかだけで
     /// 発火の可否を判定する。トップ判定は中心+4隅の5点で行い、いずれか1点でもヒットすればトップとみなす。
+    /// 入力の監視はインスタンスごとのUpdateではなく<see cref="BackKeyDispatcher"/>が1か所で行う。
     /// </remarks>
     [RequireComponent(typeof(Button), typeof(RectTransform))]
     public class BackKeyReceiver : MonoBehaviour
@@ -32,7 +30,6 @@ namespace Supplement.Unity
         private Canvas canvas;
         private PointerEventData pointerEventData;
         private BackKeyReceiverDebugRegistry debugRegistry;
-        private IDebugOverlayState debugOverlayState;
         private bool isConstructed;
         private bool isRegistered;
 
@@ -40,7 +37,6 @@ namespace Supplement.Unity
         internal void Construct(IObjectResolver objectResolver)
         {
             objectResolver.TryResolve(out debugRegistry);
-            objectResolver.TryResolve(out debugOverlayState);
             isConstructed = true;
             // OnEnableの方が先に来ていた場合(USN側のInstantiateと同時に同期的に発火するため、
             // Injectより先にOnEnableが走ることがある)、ここで登録する。
@@ -58,6 +54,7 @@ namespace Supplement.Unity
 
         private void OnEnable()
         {
+            BackKeyDispatcher.Add(this);
             // Constructの方が先に済んでいれば、ここで登録する。まだならConstruct側に任せる。
             if (isConstructed)
             {
@@ -67,6 +64,7 @@ namespace Supplement.Unity
 
         private void OnDisable()
         {
+            BackKeyDispatcher.Remove(this);
             Unregister();
         }
 
@@ -90,23 +88,19 @@ namespace Supplement.Unity
             debugRegistry?.Unregister(this);
         }
 
-        private void Update()
+        /// <summary>
+        /// 戻るキーが押されたフレームに、Buttonのクリックを発火させてよいか。
+        /// </summary>
+        internal bool CanInvoke()
         {
-            if (!Input.GetKeyDown(KeyCode.Escape))
-            {
-                return;
-            }
+            return button.interactable && IsTargetOnTop();
+        }
 
-            if (!button.interactable)
-            {
-                return;
-            }
-
-            if (!IsTargetOnTop())
-            {
-                return;
-            }
-            
+        /// <summary>
+        /// Buttonのクリックを発火させる。<see cref="CanInvoke"/>の判定で使ったPointerEventDataを渡す。
+        /// </summary>
+        internal void Invoke()
+        {
             ExecuteEvents.Execute(
                 button.gameObject,
                 pointerEventData,
@@ -132,20 +126,9 @@ namespace Supplement.Unity
         /// 判定に使う5点(中心+4隅)を、インスタンス保持の配列に書き込んで返す。
         /// 呼び出しのたびに内容が上書きされるため、結果を後で使う場合は呼び出し側でコピーすること。
         /// </summary>
-        internal Vector2[] GetSamplePoints()
+        private Vector2[] GetSamplePoints()
         {
-            var rect = rectTransform.rect;
-            // insetPixelsがRectの半分より大きいと内側に潰れて反転してしまうため、上限をかける。
-            var inset = Mathf.Min(insetPixels, rect.width / 2f, rect.height / 2f);
-            var innerRect = Rect.MinMaxRect(
-                rect.xMin + inset, rect.yMin + inset,
-                rect.xMax - inset, rect.yMax - inset);
-
-            samplePoints[0] = innerRect.center;
-            samplePoints[1] = new Vector2(innerRect.xMin, innerRect.yMax);
-            samplePoints[2] = new Vector2(innerRect.xMax, innerRect.yMax);
-            samplePoints[3] = new Vector2(innerRect.xMin, innerRect.yMin);
-            samplePoints[4] = new Vector2(innerRect.xMax, innerRect.yMin);
+            WriteLocalSamplePoints(GetInnerRect(rectTransform.rect), samplePoints);
 
             var camera = GetCanvas().worldCamera;
             for (var i = 0; i < samplePoints.Length; i++)
@@ -157,6 +140,24 @@ namespace Supplement.Unity
                 samplePoints[i] = screenPoint;
             }
             return samplePoints;
+        }
+
+        private Rect GetInnerRect(Rect rect)
+        {
+            // insetPixelsがRectの半分より大きいと内側に潰れて反転してしまうため、上限をかける。
+            var inset = Mathf.Min(insetPixels, rect.width / 2f, rect.height / 2f);
+            return Rect.MinMaxRect(
+                rect.xMin + inset, rect.yMin + inset,
+                rect.xMax - inset, rect.yMax - inset);
+        }
+
+        private static void WriteLocalSamplePoints(Rect innerRect, Vector2[] points)
+        {
+            points[0] = innerRect.center;
+            points[1] = new Vector2(innerRect.xMin, innerRect.yMax);
+            points[2] = new Vector2(innerRect.xMax, innerRect.yMax);
+            points[3] = new Vector2(innerRect.xMin, innerRect.yMin);
+            points[4] = new Vector2(innerRect.xMax, innerRect.yMin);
         }
 
         /// <summary>
@@ -178,13 +179,13 @@ namespace Supplement.Unity
             canvas = GetComponentInParent<Canvas>();
             if (canvas == null)
             {
-                throw new System.InvalidOperationException(
+                throw new InvalidOperationException(
                     $"{nameof(BackKeyReceiver)} on '{name}' must be under a Canvas.");
             }
             return canvas;
         }
 
-        internal bool IsPointOnTop(Vector2 screenPoint)
+        private bool IsPointOnTop(Vector2 screenPoint)
         {
             if (EventSystem.current == null)
             {
@@ -205,14 +206,35 @@ namespace Supplement.Unity
             return hitTransform == transform || hitTransform.IsChildOf(transform);
         }
 
-        private void OnGUI()
+#if UNITY_EDITOR
+        private const float GizmoPointSize = 8f;
+        // 実行中の判定(samplePoints)と混ざらないよう、Scene Viewの表示には別のバッファを使う。
+        private static readonly Vector2[] GizmoPoints = new Vector2[5];
+
+        /// <summary>
+        /// 選択中のReceiverについて、トップ判定点を囲む枠と判定点(中心+4隅)をScene Viewに水色で表示する。
+        /// </summary>
+        private void OnDrawGizmosSelected()
         {
-            if (debugOverlayState is not { Enabled: true })
+            // Awake前(編集時)にも呼ばれるため、キャッシュしたrectTransformは使わない。
+            var rt = (RectTransform)transform;
+            var innerRect = GetInnerRect(rt.rect);
+            WriteLocalSamplePoints(innerRect, GizmoPoints);
+
+            var previousColor = Gizmos.color;
+            var previousMatrix = Gizmos.matrix;
+            Gizmos.color = Color.cyan;
+            Gizmos.matrix = rt.localToWorldMatrix;
+
+            Gizmos.DrawWireCube(innerRect.center, innerRect.size);
+            foreach (var point in GizmoPoints)
             {
-                return;
+                Gizmos.DrawCube(point, new Vector3(GizmoPointSize, GizmoPointSize, 0f));
             }
 
-            BackKeyDebugOverlayDrawer.Draw(this);
+            Gizmos.matrix = previousMatrix;
+            Gizmos.color = previousColor;
         }
+#endif
     }
 }
