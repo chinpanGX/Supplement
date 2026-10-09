@@ -10,6 +10,9 @@ using UnityEngine.SceneManagement;
 
 namespace Supplement.Loader.AddressablesLoader
 {
+    /// <summary>
+    /// Addressablesで読み込んだシーンへのハンドル。破棄すると<c>Addressables.UnloadSceneAsync</c>でアンロードする。
+    /// </summary>
     public sealed class AddressablesSceneHandle : ISceneHandle
     {
 
@@ -24,8 +27,13 @@ namespace Supplement.Loader.AddressablesLoader
             disposed = false;
         }
         private AsyncOperationHandle<SceneInstance> Handle { get; }
+        /// <inheritdoc/>
         public bool IsDone => Handle.IsDone;
+
+        /// <inheritdoc/>
         public bool Succeeded => Handle.Status == AsyncOperationStatus.Succeeded;
+
+        /// <inheritdoc/>
         public Scene Result
         {
             get
@@ -38,6 +46,7 @@ namespace Supplement.Loader.AddressablesLoader
             }
         }
 
+        /// <inheritdoc/>
         public async ValueTask ActivateAsync(CancellationToken token)
         {
             if (disposed)
@@ -52,6 +61,9 @@ namespace Supplement.Loader.AddressablesLoader
             await Handle.Result.ActivateAsync().ToUniTask(cancellationToken: token);
         }
 
+        /// <summary>
+        /// シーンのアンロードを始める。アンロードの完了は待たない。2回目以降は何もしない。
+        /// </summary>
         public void Dispose()
         {
             if (disposed)

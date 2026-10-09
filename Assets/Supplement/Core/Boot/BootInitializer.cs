@@ -19,6 +19,10 @@ namespace Supplement.Core
         private readonly IReadOnlyList<IBootInitializationTask> tasks;
         private bool started;
 
+        /// <summary>
+        /// 実行するタスクを指定して作る。
+        /// </summary>
+        /// <param name="tasks">実行する初期化タスク。</param>
         public BootInitializer(IEnumerable<IBootInitializationTask> tasks)
         {
             this.tasks = tasks.ToArray();

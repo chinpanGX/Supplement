@@ -1,0 +1,17 @@
+{
+  "name": "com.chinpangx.supplement.messagepack",
+  "version": "1.0.0",
+  "displayName": "Supplement MessagePack",
+  "description": "Supplement Module MessagePack Save Data",
+  "dependencies": {
+    "com.chinpangx.supplement": "1.4.0"
+  },
+  "keywords": [
+    "unity",
+    "MessagePack",
+    "SaveData"
+  ],
+  "author": {
+    "name": "shota.deai"
+  }
+}

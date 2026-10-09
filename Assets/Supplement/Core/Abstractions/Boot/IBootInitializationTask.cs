@@ -12,7 +12,15 @@ namespace Supplement.Core
     /// </remarks>
     public interface IBootInitializationTask
     {
+        /// <summary>
+        /// 実行する順番。小さいものから順に実行する。
+        /// </summary>
         InitializationPriority Priority { get; }
+
+        /// <summary>
+        /// 初期化を行う。
+        /// </summary>
+        /// <param name="ct">初期化を取り消すトークン。<see cref="BootInitializer.RunAsync"/>に渡したもの。</param>
         UniTask InitializeAsync(CancellationToken ct);
     }
 }

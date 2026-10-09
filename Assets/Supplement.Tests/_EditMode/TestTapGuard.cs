@@ -1,7 +1,9 @@
 using NUnit.Framework;
 using Supplement.Core;
+using UnityEngine.TestTools.Constraints;
+using Is = UnityEngine.TestTools.Constraints.Is;
 
-namespace Supplement.Tests
+namespace Supplement.Tests.EditMode
 {
     public class TestTapGuard
     {
@@ -95,6 +97,35 @@ namespace Supplement.Tests
             }
 
             Assert.IsFalse(guard.IsGuarding);
+        }
+
+        [Test]
+        public void DisposingCopiedHandleReleasesOnlyOnce()
+        {
+            var guard = new TapGuard();
+
+            var handle = guard.BeginGuard();
+            var copy = handle;
+            using var other = guard.BeginGuard();
+
+            handle.Dispose();
+            copy.Dispose();
+
+            Assert.IsTrue(guard.IsGuarding);
+        }
+
+        [Test]
+        public void BeginAndEndGuardDoNotAllocate()
+        {
+            var guard = new TapGuard();
+            guard.BeginGuard().Dispose();
+
+            Assert.That(() =>
+            {
+                using (guard.BeginGuard())
+                {
+                }
+            }, Is.Not.AllocatingGCMemory());
         }
 
         [Test]

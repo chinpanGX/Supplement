@@ -1,70 +1,51 @@
 using System;
-using System.IO;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
 using UnityEngine;
 
-namespace Supplement.Unity.IO
+namespace Supplement.Unity
 {
-    public class EncryptedFileAccessor
+    /// <summary>
+    /// データを<see cref="JsonUtility"/>でJSONにし、暗号化してファイルに読み書きする。
+    /// </summary>
+    public class EncryptedFileAccessor : IEncryptedFileAccessor
     {
         private readonly ICryptographyExecutor cryptographyExecutor;
 
+        /// <summary>
+        /// 暗号化に使う<see cref="ICryptographyExecutor"/>を指定して作る。
+        /// </summary>
+        /// <param name="cryptographyExecutor">JSONの文字列を暗号化・復号する。</param>
+        /// <exception cref="ArgumentNullException"><paramref name="cryptographyExecutor"/>がnull。</exception>
         public EncryptedFileAccessor(ICryptographyExecutor cryptographyExecutor)
         {
             this.cryptographyExecutor = cryptographyExecutor
                                         ?? throw new ArgumentNullException(nameof(cryptographyExecutor));
         }
 
-        public async UniTask<T> ReadAsync<T>(string fileFullPath, string password)
+        /// <inheritdoc/>
+        public UniTask<T> ReadAsync<T>(string fileFullPath, string password)
         {
-            if (string.IsNullOrEmpty(fileFullPath))
-            {
-                throw new ArgumentException("Path must not be null or empty.", nameof(fileFullPath));
-            }
-
-            if (!File.Exists(fileFullPath))
-            {
-                throw new FileNotFoundException($"File not found at path: {fileFullPath}");
-            }
-
-            password ??= string.Empty;
-
-            try
-            {
-                var cipherBytes = await File.ReadAllBytesAsync(fileFullPath).AsUniTask();
-                var json = cryptographyExecutor.Decrypt(cipherBytes, password);
-                var dto = JsonUtility.FromJson<JsonDto<T>>(json);
-                return dto.Data;
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Failed to read encrypted file at \"{fileFullPath}\". {e.GetType().Name}: {e.Message}");
-                throw;
-            }
+            return EncryptedFileIO.ReadAsync(
+                fileFullPath,
+                password,
+                cryptographyExecutor,
+                static (cipherBytes, pw, executor) =>
+                    JsonUtility.FromJson<JsonDto<T>>(executor.Decrypt(cipherBytes, pw)).Data
+            );
         }
 
-        public async UniTask WriteAsync<T>(string fileFullPath, T data, string password)
+        /// <inheritdoc/>
+        public UniTask WriteAsync<T>(string fileFullPath, T data, string password)
         {
-            if (string.IsNullOrEmpty(fileFullPath))
-            {
-                throw new ArgumentException("Path must not be null or empty.", nameof(fileFullPath));
-            }
-
-            password ??= string.Empty;
-
-            try
-            {
-                var dto = new JsonDto<T> { Data = data };
-                var json = JsonUtility.ToJson(dto, true);
-                var cipherBytes = cryptographyExecutor.Encrypt(json, password);
-                await SafeFile.WriteAllBytesAsync(fileFullPath, cipherBytes);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Failed to write encrypted file at \"{fileFullPath}\". {e.GetType().Name}: {e.Message}");
-                throw;
-            }
+            return EncryptedFileIO.WriteAsync(
+                fileFullPath,
+                data,
+                password,
+                cryptographyExecutor,
+                static (value, pw, executor) =>
+                    executor.Encrypt(JsonUtility.ToJson(new JsonDto<T> { Data = value }, true), pw)
+            );
         }
     }
 }

@@ -1,6 +1,6 @@
 using Supplement.Tests.Presentation.Abstractions;
 
-namespace Supplement.Tests.Presentation
+namespace Supplement.Tests.Presentation.Abstractions
 {
     public class SamplePopupDto : ViewDto
     {

@@ -2,19 +2,21 @@
 using System.IO;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using Supplement.Core;
 using Supplement.Loader.Abstractions;
 using Supplement.Loader.AddressablesLoader;
-using Supplement.Tests.Application;
 using Supplement.Tests.Application.Abstractions;
+using Supplement.Tests.Application;
 using Supplement.Tests.Domain;
 using Supplement.Tests.Infrastructure;
-using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
-using UnityEngine;
+using Supplement.Tests.Presentation;
+using Supplement.Unity;
 using UnityEngine.TestTools;
+using UnityEngine;
 using VContainer;
 
-namespace Supplement.Tests
+namespace Supplement.Tests.EditMode
 {
     public class TestVContainer
     {

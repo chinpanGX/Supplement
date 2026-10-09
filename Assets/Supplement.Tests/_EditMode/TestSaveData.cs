@@ -1,15 +1,16 @@
-using System;
 using System.Collections;
 using System.IO;
+using System;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Supplement.Core;
-using VContainer;
 using Supplement.Tests.Domain;
 using Supplement.Tests.Infrastructure;
+using Supplement.Unity;
 using UnityEngine.TestTools;
+using VContainer;
 
-namespace Supplement.Tests
+namespace Supplement.Tests.EditMode
 {
     public class TestSaveData
     {
@@ -26,10 +27,10 @@ namespace Supplement.Tests
             yield return RunTestCode().ToCoroutine();
         }
 
-        [TearDown]
-        public void AfterTest()
+        [UnityTearDown]
+        public IEnumerator AfterTest()
         {
-            repositoriesCache.DeleteAll();
+            yield return repositoriesCache.DeleteAllAsync().ToCoroutine();
         }
 
         [OneTimeTearDown]
@@ -80,7 +81,7 @@ namespace Supplement.Tests
                 await itemRepository.CommitAsync();
                 await playerRepository.CommitAsync();
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 itemRepository.Rollback();
                 playerRepository.Rollback();

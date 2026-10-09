@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Supplement.Core;
 using UnityEngine;
 using UnityEngine.Pool;
 using VContainer;
@@ -18,7 +19,7 @@ namespace Supplement.Unity
     /// </remarks>
     public class RecycleRenderer<TRenderable, TDto> : IDisposable
         where TRenderable : Component, IAsyncRenderable<TDto>
-        where TDto : class
+        where TDto : class, IEquatable<TDto>
     {
         private readonly GameObject template;
         private readonly Transform parent;
@@ -40,6 +41,12 @@ namespace Supplement.Unity
             template.SetActive(false);
         }
 
+        /// <summary>
+        /// <paramref name="dtos"/>の数だけインスタンスを並べ、それぞれに<see cref="IAsyncRenderable{T}.RenderAsync"/>で表示させる。
+        /// 余ったインスタンスは非アクティブにしてプールに戻す。前回描画し終えたものと値が等しければ何もしない。
+        /// </summary>
+        /// <param name="dtos">表示する内容。並び順がヒエラルキー上の並び順になる。</param>
+        /// <exception cref="ObjectDisposedException">破棄した後に呼んだ。</exception>
         public async UniTask RenderAsync(EquatableReadOnlyList<TDto> dtos)
         {
             if (disposed)
@@ -51,7 +58,8 @@ namespace Supplement.Unity
             {
                 return;
             }
-            previousDtos = dtos;
+            // 描画が途中で失敗したとき、同じDTOでの再試行を弾かないよう、完了するまで前回の値を持たない。
+            previousDtos = null;
 
             while (activeRenderables.Count > dtos.Count)
             {
@@ -76,8 +84,12 @@ namespace Supplement.Unity
                 }
                 await UniTask.WhenAll(tasks);
             }
+            previousDtos = dtos;
         }
 
+        /// <summary>
+        /// 生成したインスタンスをすべて破棄する。2回目以降は何もしない。
+        /// </summary>
         public void Dispose()
         {
             if (disposed)
@@ -105,13 +117,22 @@ namespace Supplement.Unity
             renderable.gameObject.SetActive(true);
         }
 
+        // ファクトリのOnDestroyからDisposeされるときは、ヒエラルキーの破棄で子が先に破棄済みのことがある。
         private static void Release(TRenderable renderable)
         {
+            if (renderable == null)
+            {
+                return;
+            }
             renderable.gameObject.SetActive(false);
         }
 
         private static void Destroy(TRenderable renderable)
         {
+            if (renderable == null)
+            {
+                return;
+            }
             UnityEngine.Object.Destroy(renderable.gameObject);
         }
     }

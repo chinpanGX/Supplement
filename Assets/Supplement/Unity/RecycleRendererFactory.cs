@@ -1,4 +1,5 @@
 using System;
+using Supplement.Core;
 using UnityEngine;
 using VContainer;
 
@@ -20,15 +21,28 @@ namespace Supplement.Unity
         private IObjectResolver objectResolver;
         private IDisposable disposable;
 
+        /// <summary>
+        /// VContainerから注入する。インスタンスの生成に使う。
+        /// </summary>
+        /// <param name="objectResolver">インスタンスを生成するリゾルバー。</param>
         [Inject]
         public void Construct(IObjectResolver objectResolver)
         {
             this.objectResolver = objectResolver;
         }
 
+        /// <summary>
+        /// Inspectorで設定したテンプレートと配置先を使う<see cref="RecycleRenderer{TRenderable,TDto}"/>を作る。
+        /// 作ったものは、このコンポーネントが破棄されるときに一緒に破棄する。
+        /// </summary>
+        /// <typeparam name="TRenderable">テンプレートに付いている、表示を担うコンポーネントの型。</typeparam>
+        /// <typeparam name="TDto">表示する内容を表すDTOの型。</typeparam>
+        /// <exception cref="InvalidOperationException">
+        /// すでに作っている(1つのファクトリで作れるのは1つだけ)、またはDIコンテナを通さずに生成されていて注入されていない。
+        /// </exception>
         public RecycleRenderer<TRenderable, TDto> Create<TRenderable, TDto>()
             where TRenderable : Component, IAsyncRenderable<TDto>
-            where TDto : class
+            where TDto : class, IEquatable<TDto>
         {
             if (disposable != null)
             {

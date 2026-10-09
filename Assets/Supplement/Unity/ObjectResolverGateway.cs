@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using UnityEngine;
 using VContainer;
 
 namespace Supplement.Unity
@@ -68,16 +69,18 @@ namespace Supplement.Unity
                 instance = null;
                 return false;
             }
-            instance = resolver.Resolve<T>();
-            return instance != null;
+           
+            return resolver.TryResolve(out instance);
         }
 
         /// <summary>
         /// 静的ゲートウェイに登録されている <see cref="IObjectResolver"/> をリセットします。
         /// リセット後は、新たに <see cref="Register"/> を呼び出して <see cref="IObjectResolver"/> を再登録する必要があります。
         /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         public static void Reset()
         {
+            // ドメインリロードを無効にしていると、前回のプレイで登録した(破棄済みの)Resolverが残っているため、起動時にも消す。
             resolver = null;
         }
     }

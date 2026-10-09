@@ -14,6 +14,13 @@
       "dependencies": {},
       "hash": "acc1c7bc9ea34c33b830e40316fca52553878d29"
     },
+    "com.github.messagepack-csharp": {
+      "version": "https://github.com/MessagePack-CSharp/MessagePack-CSharp.git?path=src/MessagePack.UnityClient/Assets/Scripts/MessagePack#v3.1.9",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "aa16e71ae548645050f0a6798874540f3149681b"
+    },
     "com.unity.addressables": {
       "version": "2.11.2",
       "depth": 0,

@@ -1,8 +1,12 @@
-﻿using System.Linq;
+using System;
+using System.Buffers;
 using System.Text;
 
 namespace Supplement.Core
 {
+    /// <summary>
+    /// CRC-32(IEEE 802.3、多項式0xEDB88320)を計算する。
+    /// </summary>
     public static class Crc32
     {
         private static readonly uint[] Table = new uint[256];
@@ -18,11 +22,40 @@ namespace Supplement.Core
             }
         }
 
+        /// <summary>
+        /// 文字列をUTF-8にしたバイト列のCRC-32を、ゼロ埋めした8桁の16進数で返す。
+        /// </summary>
+        /// <remarks>
+        /// 保存ファイル名の生成に使っているため、出力を変えると既存のファイルを読めなくなる。
+        /// </remarks>
         public static string Compute(string source)
         {
-            var input = Encoding.UTF8.GetBytes(source);
-            var crc = input.Aggregate(0xffffffff, (current, b) => current >> 8 ^ Table[current & 0xff ^ b]);
-            return (~crc).ToString("x8"); // ゼロ埋めの8桁の16進数
+            if (source is null) throw new ArgumentNullException(nameof(source));
+
+            var buffer = ArrayPool<byte>.Shared.Rent(Encoding.UTF8.GetMaxByteCount(source.Length));
+            try
+            {
+                var byteCount = Encoding.UTF8.GetBytes(source, 0, source.Length, buffer, 0);
+                return Compute(buffer.AsSpan(0, byteCount)).ToString("x8");
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
+        }
+
+        /// <summary>
+        /// <paramref name="data"/>のCRC-32を返す。
+        /// </summary>
+        /// <param name="data">計算するバイト列。</param>
+        public static uint Compute(ReadOnlySpan<byte> data)
+        {
+            var crc = 0xffffffff;
+            foreach (var b in data)
+            {
+                crc = crc >> 8 ^ Table[(crc ^ b) & 0xff];
+            }
+            return ~crc;
         }
     }
 }

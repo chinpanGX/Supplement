@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using VContainer.Unity;
 
-namespace Supplement.Tests
+namespace Supplement.Tests.PlayMode
 {
     public class TestShowSamplePopup
     {
