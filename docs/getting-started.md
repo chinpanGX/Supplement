@@ -8,7 +8,7 @@ Package Managerの「Add package from git URL...」から、次のURLを追加�
 https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement
 ```
 
-`IMessageBroker`をZeroMessengerで実装したパッケージは別になっています。使う場合は次のURLも追加します。
+`IMessageBroker`の実装(`MessageBroker`)は本体に入っています。ZeroMessengerで実装したものを使う場合は、別パッケージの次のURLも追加します。
 
 ```
 https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger

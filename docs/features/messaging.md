@@ -2,17 +2,26 @@
 
 メッセージ(構造体)を発行して、購読者に届けます。届く範囲によって2種類あります。
 
-| 型 | 届く範囲 | アセンブリ |
-|---|---|---|
-| `IMessageBroker` | アプリ全体 | `Supplement.Core`(抽象) |
-| `GlobalMessageBroker` | アプリ全体(`IMessageBroker`のZeroMessengerによる実装) | `Supplement.ZeroMessenger`(別パッケージ) |
-| `HierarchyMessageBroker` | 自身より下の階層のコンポーネントからだけ | `Supplement.Unity` |
+| 型                        | 届く範囲                                       | アセンブリ                              |
+| ------------------------ | ------------------------------------------ | ---------------------------------- |
+| `IMessageBroker`         | アプリ全体                                      | `Supplement.Core`(抽象)              |
+| `MessageBroker`          | アプリ全体(`IMessageBroker`の実装。外部ライブラリに依存しない)   | `Supplement.Core`                  |
+| `GlobalMessageBroker`    | アプリ全体(`IMessageBroker`のZeroMessengerによる実装) | `Supplement.ZeroMessenger`(別パッケージ) |
+| `HierarchyMessageBroker` | 自身より下の階層のコンポーネントからだけ                       | `Supplement.Unity`                 |
 
 メッセージの型は構造体(`where T : struct`)に限ります。
 
 ## DIへの登録
 
-- `IMessageBroker`: 登録用の拡張メソッドはありません。実装を直接登録します
+- `IMessageBroker`: `RegisterMessageBroker()`で、アプリ全体で共有する`MessageBroker.Default`を登録します
+
+  ```csharp
+  using Supplement.Unity;
+
+  builder.RegisterMessageBroker();
+  ```
+
+  ZeroMessengerの実装を使う場合は、拡張メソッドは無いので直接登録します
 
   ```csharp
   builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
@@ -22,7 +31,7 @@
 
 ## IMessageBroker(アプリ全体)
 
-どの画面から発行されるか決まっていない通知(所持数の変化など)に使います。
+どの画面から発行されるか決まっていない通知(所持数の変化など)に使います。DIを使わない場所からは、`MessageBroker.Default`をそのまま使えます。
 
 ```csharp
 // 購読(戻り値をDisposeすると解除)
@@ -30,7 +39,60 @@ messageBroker.Subscribe<ItemAmountChanged>(x => Refresh(x.ItemId)).AddTo(disposa
 
 // 発行
 messageBroker.Publish(new ItemAmountChanged { ItemId = 1001 });
+
+// DIを使わない場合
+MessageBroker.Default.Publish(new ItemAmountChanged { ItemId = 1001 });
 ```
+
+### 非同期の購読と発行
+
+`SubscribeAwait`で、非同期の処理で購読できます。処理中に次のメッセージが届いたときの扱いを`AsyncSubscribeStrategy`で選びます(省略すると`Sequential`)。
+
+```csharp
+messageBroker.SubscribeAwait<ItemAmountChanged>(async (x, ct) =>
+{
+    await PlayCountUpAsync(x.ItemId, ct);
+}, AsyncSubscribeStrategy.Switch).AddTo(disposableBag);
+
+// すべてのハンドラーの完了を待つ
+await messageBroker.PublishAsync(new ItemAmountChanged { ItemId = 1001 }, AsyncPublishStrategy.Parallel, token);
+```
+
+| `AsyncSubscribeStrategy` | 処理中に次のメッセージが届いたとき |
+|---|---|
+| `Sequential` | 届いた順に並べ、前の処理が終わってから次を始める |
+| `Parallel` | 前の処理を待たずに、次を始める |
+| `Switch` | 処理中のハンドラーに渡したトークンを取り消し、次を始める |
+| `Drop` | 届いたメッセージを捨てる |
+
+| `AsyncPublishStrategy` | `PublishAsync`での購読者の呼び方 |
+|---|---|
+| `Parallel`(既定) | すべての購読者を一度に開始し、すべての完了を待つ |
+| `Sequential` | 購読者を登録順に1つずつ呼び、前の購読者の完了を待ってから次を呼ぶ |
+
+### 動き(MessageBroker)
+
+- `Publish`は、同期のハンドラーをその場で登録順に呼びます。非同期のハンドラーは開始するだけで、完了を待ちません
+- 購読者が例外を投げても残りの購読者は呼び、最後にまとめて`AggregateException`で投げます。`PublishAsync`も同じで、すべての購読者が終わってから投げます
+- `Publish`で開始した非同期のハンドラーの例外は、呼び出し元には返らず、UniTaskの`UniTaskScheduler.UnobservedTaskException`に流れます(既定ではログに出ます)
+- `Subscribe`・`SubscribeAwait`は`IDisposable`を返します。破棄すると購読を解除し、処理中の非同期のハンドラーに渡したトークンを取り消します。`Sequential`でまだ始まっていないメッセージは呼ばずに捨てます
+- 購読の解除・`Switch`での切り替えで取り消されたハンドラーの`OperationCanceledException`は、例外として扱いません
+- `PublishAsync`の`cancellationToken`はハンドラーにも渡ります。取り消すと、まだ始まっていない処理は呼ばず、`OperationCanceledException`を投げます。`Sequential`の購読者で前の処理を待っている分も、取り消した時点で終わります
+- 範囲外の`AsyncPublishStrategy`・`AsyncSubscribeStrategy`を渡すと、その場で`ArgumentOutOfRangeException`を投げます
+- 同じデリゲートを重ねて登録すると、登録した回数だけ呼びます
+- 発行中に登録しても、その発行には届きません(次の発行から届きます)。発行中に解除した購読者には、その発行でもそれ以降は届けません
+- 発行・購読・解除は、どのスレッドから呼んでも構いません
+- 同期のハンドラーへの`Publish`はGCアロケーションを起こしません。同期的に完了する非同期のハンドラー(`Sequential`・`Parallel`・`Drop`)も同じです。`Switch`はメッセージごとに`CancellationTokenSource`を作ります
+- ブローカーを`Dispose`すると、購読をすべて解除し、以後の`Publish`・`Subscribe`などは`ObjectDisposedException`を投げます
+
+### 注意
+
+- `MessageBroker.Default`は`Dispose`しないでください。アプリ全体で使えなくなります。`RegisterMessageBroker()`は`RegisterInstance`で登録するので、コンテナを破棄しても`Default`は破棄されません
+- `Default`の購読は、解除するまでアプリの終了まで残ります。画面やオブジェクトより長く生きるため、購読者の破棄のタイミングで必ず解除してください
+- プレイモードに入るときのドメインリロードを無効にしていても、プレイの開始時に`Default`の購読はすべて解除されます(前回のプレイの購読は残りません)
+- `Sequential`の購読者のハンドラーの中で、同じ型のメッセージを`PublishAsync`して完了を待たないでください。そのメッセージは今のハンドラーが終わるまで始まらないため、どちらも終わらなくなります
+- `GlobalMessageBroker`は、ハンドラーの例外をZeroMessengerの扱いのまま返します。`AggregateException`にまとめるのは`MessageBroker`だけです
+- `GlobalMessageBroker`を破棄すると、そのインスタンスを通じた購読だけを解除します。ZeroMessengerの`MessageBroker<T>.Default`を直接使った購読は解除しません
 
 ## HierarchyMessageBroker(ヒエラルキーの中だけ)
 
