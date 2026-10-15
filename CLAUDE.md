@@ -17,9 +17,12 @@ Supplementは、Unityの補助的な機能をまとめたUPMパッケージ(`Ass
   - `features/`: 機能ごとに1ページ。「何をするか → 主な型 → DIへの登録 → 使い方(コード例) → 動き → 注意」の順。DIへの登録は、拡張メソッドがあればそれを、無ければ直接登録する書き方を、登録が要らなければその旨を書く
   - `changelog.md`: バージョンごとの変更。互換性が壊れる変更は必ず書く
 - メンテナー向け(Supplement自体を開発・修正する人)
+  - `maintainers/roadmap.md`: 進めているバージョンの残りの作業と、決めていないこと。作業の区切りで更新し、終わった項目は消す
+  - `maintainers/design-principles.md`: 機能を足す・変えるときの判断の基準と、意図して持たない機能
   - `maintainers/performance.md`: GCアロケーションを起こさないための実装の方針
   - `maintainers/internals.md`: 内部の仕組み(内部クラス・データ構造・リトライの回数など)と、そうした理由
   - `maintainers/testing.md`: テストの回し方と書き方、変えてはいけない期待値
+  - `maintainers/benchmark.md`: ベンチマークの結果と回し方
 
 ### 更新のルール
 
@@ -44,4 +47,11 @@ Supplementは、Unityの補助的な機能をまとめたUPMパッケージ(`Ass
     のようにビルドし、警告のCS1591(付け漏れ)・CS1574(参照先が無い)などで確かめる。Unityのコンパイルではこれらの警告は出ない
 - 毎フレームや操作のたびに呼ばれる処理ではGCアロケーションを起こさない。方針は`docs/maintainers/performance.md`
 - 一時バッファは`ArrayPool`から借りる(`stackalloc`と使い分けない)
-- C#を変えたら`uloop compile`でエラーが無いことを確かめ、テストを回す。回し方は`docs/maintainers/testing.md`
+- 機能を足す・APIの形を変える前に`docs/maintainers/design-principles.md`を読む。持たないと決めた機能を提案しない
+- C#を変えたらUnity CLI(`unity command recompile`など)でエラーが無いことを確かめ、テストを回す。回し方は`docs/maintainers/testing.md`
+
+## 作業の進め方
+
+- 作業を始めるときは`docs/maintainers/roadmap.md`で今の状態を確かめ、区切りで更新する
+- ベンチマーク(`Benchmarks/`)の計測は自分で実行しない。ビルドまでにとどめ、計測のコマンドを示してメンテナーに頼む(長い時間CPUを占有するため)
+- リリースの準備は`release`スキルで行う

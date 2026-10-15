@@ -32,6 +32,8 @@ Supplementを使ってゲームを作る人向けのページです。
 
 Supplement自体を開発・修正する人向けのページです。
 
+- [作業の状態](maintainers/roadmap.md) — 進めているバージョンの残りの作業と、決めていないこと
+- [設計の方針](maintainers/design-principles.md) — 機能を足す・変えるときの判断の基準と、意図して持たない機能
 - [パフォーマンスとGC](maintainers/performance.md) — GCアロケーションを起こさないための実装の方針
 - [内部の設計](maintainers/internals.md) — 利用者向けのページに書いていない実装の仕組みと、その理由
 - [テスト](maintainers/testing.md) — テストの回し方と、GCアロケーション・入力を使うテストの書き方
