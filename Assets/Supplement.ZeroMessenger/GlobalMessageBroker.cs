@@ -5,9 +5,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Supplement.Core;
 using ZeroMessenger;
-using AsyncPublishStrategy = Supplement.Core.AsyncPublishStrategy;
 using AsyncSubscribeStrategy = Supplement.Core.AsyncSubscribeStrategy;
-using ZeroAsyncPublishStrategy = ZeroMessenger.AsyncPublishStrategy;
 using ZeroAsyncSubscribeStrategy = ZeroMessenger.AsyncSubscribeStrategy;
 
 namespace Supplement.ZeroMessenger
@@ -17,8 +15,8 @@ namespace Supplement.ZeroMessenger
     /// </summary>
     /// <remarks>
     /// 破棄すると、このインスタンスを通じた購読をすべて解除する。ほかのインスタンスやZeroMessengerを直接使った購読は解除しない。
-    /// ハンドラーが投げた例外の扱いは、ZeroMessengerに従う(<see cref="Supplement.Core.MessageBroker"/>のように
-    /// <see cref="AggregateException"/>にまとめはしない)。
+    /// ハンドラーが投げた例外の扱いは、ZeroMessengerに従う(同期のハンドラーの例外はそのまま呼び出し元に投げ、
+    /// 残りのハンドラーは呼ばない。<see cref="Supplement.Core.MessageBroker"/>とは違う)。
     /// </remarks>
     public class GlobalMessageBroker : IMessageBroker
     {
@@ -33,22 +31,6 @@ namespace Supplement.ZeroMessenger
         {
             ThrowIfDisposed();
             MessageBroker<T>.Default.Publish(message);
-        }
-
-        /// <inheritdoc/>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="publishStrategy"/>が定義されていない値。</exception>
-        /// <exception cref="ObjectDisposedException">このブローカーは破棄されている。</exception>
-        public UniTask PublishAsync<T>(T message, AsyncPublishStrategy publishStrategy = AsyncPublishStrategy.Parallel,
-            CancellationToken cancellationToken = default) where T : struct
-        {
-            ThrowIfDisposed();
-            var strategy = publishStrategy switch
-            {
-                AsyncPublishStrategy.Parallel => ZeroAsyncPublishStrategy.Parallel,
-                AsyncPublishStrategy.Sequential => ZeroAsyncPublishStrategy.Sequential,
-                _ => throw new ArgumentOutOfRangeException(nameof(publishStrategy), publishStrategy, null),
-            };
-            return MessageBroker<T>.Default.PublishAsync(message, strategy, cancellationToken).AsUniTask();
         }
 
         /// <inheritdoc/>

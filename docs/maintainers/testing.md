@@ -11,12 +11,22 @@
 
 ## 回し方
 
+[Unity CLI](https://unity.com/)で、開いているUnity Editorに対して回します。
+
 ```
-uloop compile
-uloop run-tests --test-mode EditMode
-uloop run-tests --test-mode PlayMode --filter-type regex --filter-value "TestUpdateDispatcher|TestBackKeyReceiver"
+unity command eval "UnityEditor.AssetDatabase.Refresh();"
+unity command recompile
+unity command run_tests --mode editor --timeout 600
+
+unity command run_tests --mode playmode --filter TestUpdateDispatcher --async_tests true
+unity command test_status    # "status"が"completed"になるまで繰り返す
+unity command run_tests --mode playmode --filter TestBackKeyReceiver --async_tests true
+unity command test_status
 ```
 
+- Editorの外でファイルを変えたときは、Editorが気づくまでコンパイルされません。先に`AssetDatabase.Refresh`を呼びます(これでコンパイルまで済み、続く`recompile`が「up_to_date」を返すことがあります)。エラーの有無は`unity command console_status`の`compilationFailed`で確かめます
+- PlayModeは`--async_tests true`で開始し、`test_status`で結果を取ります。待つ形(`--async_tests`なし)で呼ぶと、プレイモードに入らずに0件で返ります
+- `--filter`は名前の部分一致です(正規表現ではない)。複数のクラスを回すときは、クラスごとに分けて呼びます
 - PlayModeの`TestItemListView`は、表示した画面の閉じるボタンを手で押すまで終わりません(押さないと180秒でタイムアウトする)。自動で回すときは、上のようにクラスで絞ります
 - このプロジェクトはプレイモードに入るときのドメインリロードを無効にしています。Unity Test Framework 1.8.0は、この設定だと2回目以降のPlayModeテストが0件になります(テストアセンブリの一覧のキャッシュが、`null`ではなく空のリストに戻されるため)。`_PlayMode/PlayModeTestAssemblyCacheWorkaround.cs`が、プレイモードに入る前にこのキャッシュを`null`に戻して回避しています。Test Framework側が直ったら消します
 

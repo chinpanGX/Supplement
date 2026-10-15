@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
@@ -31,33 +32,17 @@ namespace Supplement.Core
         private volatile bool disposed;
 
         /// <inheritdoc/>
-        /// <exception cref="AggregateException">同期のハンドラーが例外を投げた。残りのハンドラーは呼んだうえで、最後にまとめて投げる。</exception>
+        /// <remarks>
+        /// 同期のハンドラーは、この呼び出しの中で登録順に呼ぶ。非同期のハンドラー(<see cref="SubscribeAwait{T}"/>)は
+        /// 開始するだけで完了を待たない。
+        /// ハンドラーが例外を投げても残りのハンドラーは呼び、例外は呼び出し元に投げずに
+        /// <c>UniTaskScheduler.UnobservedTaskException</c>に流す(非同期のハンドラーの例外と同じ)。
+        /// </remarks>
         /// <exception cref="ObjectDisposedException">このブローカーは破棄されている。</exception>
         public void Publish<T>(T message) where T : struct
         {
             ThrowIfDisposed();
             GetChannel<T>()?.Publish(message);
-        }
-
-        /// <inheritdoc/>
-        /// <remarks>
-        /// <see cref="AsyncSubscribeStrategy.Sequential"/>の購読者のハンドラーの中で、同じ型のメッセージの完了を待つと、
-        /// そのメッセージは今のハンドラーが終わるまで始まらないため、終わらなくなる。
-        /// </remarks>
-        /// <exception cref="AggregateException">ハンドラーが例外を投げた。残りのハンドラーは呼んだうえで、最後にまとめて投げる。</exception>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="publishStrategy"/>が定義されていない値。</exception>
-        /// <exception cref="ObjectDisposedException">このブローカーは破棄されている。</exception>
-        public UniTask PublishAsync<T>(T message, AsyncPublishStrategy publishStrategy = AsyncPublishStrategy.Parallel,
-            CancellationToken cancellationToken = default) where T : struct
-        {
-            if (publishStrategy != AsyncPublishStrategy.Parallel && publishStrategy != AsyncPublishStrategy.Sequential)
-            {
-                throw new ArgumentOutOfRangeException(nameof(publishStrategy), publishStrategy, null);
-            }
-
-            ThrowIfDisposed();
-            var channel = GetChannel<T>();
-            return channel?.PublishAsync(message, publishStrategy, cancellationToken) ?? UniTask.CompletedTask;
         }
 
         /// <inheritdoc/>
@@ -133,7 +118,8 @@ namespace Supplement.Core
         {
             var index = TypeIndex<T>.Value;
             var current = Volatile.Read(ref channels);
-            return index < current.Length ? (MessageChannel<T>)Volatile.Read(ref current[index]) : null;
+            // その添字にはMessageChannel<T>しか入れないので、型を確かめるキャストを省く。
+            return index < current.Length ? Unsafe.As<MessageChannel<T>>(Volatile.Read(ref current[index])) : null;
         }
 
         private MessageChannel<T> GetOrCreateChannel<T>() where T : struct

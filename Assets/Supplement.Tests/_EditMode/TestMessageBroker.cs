@@ -23,17 +23,27 @@ namespace Supplement.Tests.EditMode
         }
 
         private MessageBroker broker;
+        // UniTaskScheduler.UnobservedTaskExceptionに流れた例外。
+        private readonly List<Exception> unobserved = new();
 
         [SetUp]
         public void SetUp()
         {
             broker = new MessageBroker();
+            unobserved.Clear();
+            UniTaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
         }
 
         [TearDown]
         public void TearDown()
         {
+            UniTaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
             broker.Dispose();
+        }
+
+        private void OnUnobservedTaskException(Exception exception)
+        {
+            unobserved.Add(exception);
         }
 
         [Test]
@@ -195,17 +205,56 @@ namespace Supplement.Tests.EditMode
         }
 
         [Test]
-        public void PublishCallsAllSubscribersAndThrowsAggregateException()
+        public void PublishCallsAllSubscribersAndForwardsExceptionsWithoutThrowing()
         {
             var called = 0;
             broker.Subscribe<SampleMessage>(_ => throw new InvalidOperationException("first"));
             broker.Subscribe<SampleMessage>(_ => called++);
             broker.Subscribe<SampleMessage>(_ => throw new InvalidOperationException("third"));
+            broker.Subscribe<SampleMessage>(_ => called++);
 
-            var exception = Assert.Throws<AggregateException>(() => broker.Publish(new SampleMessage()));
+            // 呼び出し元には投げない。
+            Assert.DoesNotThrow(() => broker.Publish(new SampleMessage()));
+
+            // 例外を投げた購読者の後ろも呼び、例外は投げた順にUnobservedTaskExceptionへ流す。
+            Assert.AreEqual(2, called);
+            Assert.AreEqual(2, unobserved.Count);
+            Assert.AreEqual("first", unobserved[0].Message);
+            Assert.AreEqual("third", unobserved[1].Message);
+        }
+
+        [Test]
+        public void PublishContinuesAfterSubscriberThatDisposesItselfAndThrows()
+        {
+            var called = 0;
+            IDisposable self = null;
+            self = broker.Subscribe<SampleMessage>(_ =>
+            {
+                self.Dispose();
+                throw new InvalidOperationException();
+            });
+            broker.Subscribe<SampleMessage>(_ => called++);
+
+            broker.Publish(new SampleMessage());
 
             Assert.AreEqual(1, called);
-            Assert.AreEqual(2, exception.InnerExceptions.Count);
+            Assert.AreEqual(1, unobserved.Count);
+        }
+
+        [Test]
+        public void PublishDoesNotDeliverToSubscriberAddedByThrowingHandler()
+        {
+            var added = 0;
+            broker.Subscribe<SampleMessage>(_ =>
+            {
+                broker.Subscribe<SampleMessage>(_ => added++);
+                throw new InvalidOperationException();
+            });
+
+            broker.Publish(new SampleMessage());
+
+            Assert.AreEqual(0, added);
+            Assert.AreEqual(1, unobserved.Count);
         }
 
         [Test]
@@ -352,137 +401,11 @@ namespace Supplement.Tests.EditMode
             await UniTask.CompletedTask;
         });
 
-        [UnityTest]
-        public IEnumerator PublishAsyncWaitsForAllHandlers() => UniTask.ToCoroutine(async () =>
-        {
-            var first = new GatedHandler();
-            var second = new GatedHandler();
-            var syncCount = 0;
-            broker.SubscribeAwait<SampleMessage>(first.HandleAsync);
-            broker.SubscribeAwait<SampleMessage>(second.HandleAsync);
-            broker.Subscribe<SampleMessage>(_ => syncCount++);
-
-            var publish = broker.PublishAsync(new SampleMessage { Value = 1 }).Preserve();
-            CollectionAssert.AreEqual(new[] { 1 }, first.Started);
-            CollectionAssert.AreEqual(new[] { 1 }, second.Started);
-            Assert.AreEqual(1, syncCount);
-
-            first.Complete(0);
-            Assert.AreEqual(UniTaskStatus.Pending, publish.Status);
-
-            second.Complete(0);
-            Assert.AreEqual(UniTaskStatus.Succeeded, publish.Status);
-            await publish;
-        });
-
-        [UnityTest]
-        public IEnumerator PublishAsyncSequentialWaitsForEachHandlerBeforeNext() => UniTask.ToCoroutine(async () =>
-        {
-            var first = new GatedHandler();
-            var second = new GatedHandler();
-            broker.SubscribeAwait<SampleMessage>(first.HandleAsync);
-            broker.SubscribeAwait<SampleMessage>(second.HandleAsync);
-
-            var publish = broker.PublishAsync(new SampleMessage { Value = 1 }, AsyncPublishStrategy.Sequential).Preserve();
-            CollectionAssert.AreEqual(new[] { 1 }, first.Started);
-            CollectionAssert.IsEmpty(second.Started);
-
-            first.Complete(0);
-            CollectionAssert.AreEqual(new[] { 1 }, second.Started);
-
-            second.Complete(0);
-            await publish;
-        });
-
-        [UnityTest]
-        public IEnumerator PublishAsyncThrowsAggregateExceptionAfterAllHandlers() => UniTask.ToCoroutine(async () =>
-        {
-            var completed = 0;
-            broker.SubscribeAwait<SampleMessage>(async (_, _) =>
-            {
-                await UniTask.CompletedTask;
-                throw new InvalidOperationException();
-            }, AsyncSubscribeStrategy.Parallel);
-            broker.SubscribeAwait<SampleMessage>(async (_, _) =>
-            {
-                await UniTask.CompletedTask;
-                completed++;
-            }, AsyncSubscribeStrategy.Parallel);
-            broker.Subscribe<SampleMessage>(_ => throw new ArgumentException());
-
-            var exception = await CatchAsync(broker.PublishAsync(new SampleMessage()));
-
-            Assert.IsInstanceOf<AggregateException>(exception);
-            Assert.AreEqual(2, ((AggregateException)exception).InnerExceptions.Count);
-            Assert.AreEqual(1, completed);
-        });
-
-        [UnityTest]
-        public IEnumerator PublishAsyncCanceledSkipsQueuedMessage() => UniTask.ToCoroutine(async () =>
-        {
-            var handler = new GatedHandler();
-            broker.SubscribeAwait<SampleMessage>(handler.HandleAsync, AsyncSubscribeStrategy.Sequential);
-            using var cts = new CancellationTokenSource();
-
-            broker.Publish(new SampleMessage { Value = 1 });
-            var publish = broker.PublishAsync(new SampleMessage { Value = 2 }, cancellationToken: cts.Token).Preserve();
-            cts.Cancel();
-
-            // 前の処理(1)の終わりを待たずに、取り消した時点で終わる。
-            Assert.AreEqual(UniTaskStatus.Canceled, publish.Status);
-            Assert.IsInstanceOf<OperationCanceledException>(await CatchAsync(publish));
-
-            handler.Complete(0);
-            CollectionAssert.AreEqual(new[] { 1 }, handler.Started);
-        });
-
-        [Test]
-        public void PublishAsyncThrowsForUndefinedStrategyEvenWithoutSubscribers()
-        {
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
-                broker.PublishAsync(new SampleMessage(), (AsyncPublishStrategy)99));
-        }
-
         [Test]
         public void SubscribeAwaitThrowsForUndefinedStrategy()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 broker.SubscribeAwait<SampleMessage>((_, _) => UniTask.CompletedTask, (AsyncSubscribeStrategy)99));
-        }
-
-        [UnityTest]
-        public IEnumerator PublishAsyncCompletesWhenSubscriptionIsDisposed() => UniTask.ToCoroutine(async () =>
-        {
-            var handler = new GatedHandler();
-            var subscription = broker.SubscribeAwait<SampleMessage>(handler.HandleAsync, AsyncSubscribeStrategy.Sequential);
-
-            var running = broker.PublishAsync(new SampleMessage { Value = 1 }).Preserve();
-            var queued = broker.PublishAsync(new SampleMessage { Value = 2 }).Preserve();
-            subscription.Dispose();
-
-            await running;
-            await queued;
-            CollectionAssert.AreEqual(new[] { 1 }, handler.Started);
-        });
-
-        [UnityTest]
-        public IEnumerator PublishAsyncWithoutSubscribersCompletes() => UniTask.ToCoroutine(async () =>
-        {
-            await broker.PublishAsync(new SampleMessage());
-        });
-
-        private static async UniTask<Exception> CatchAsync(UniTask task)
-        {
-            try
-            {
-                await task;
-            }
-            catch (Exception e)
-            {
-                return e;
-            }
-            Assert.Fail("例外が投げられなかった。");
-            return null;
         }
 
         // 呼ばれるたびに、テストから完了させるまで終わらない処理を作る。

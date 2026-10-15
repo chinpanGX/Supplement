@@ -8,13 +8,19 @@
 
 - `.NET 10`のコンソールアプリで、[BenchmarkDotNet](https://benchmarkdotnet.org/)で測ります
 - NuGetで入れるのは`BenchmarkDotNet`・`UniTask`・`ZeroMessenger`の3つです
-- 測る実装は、Unityプロジェクトのソース(`IMessageBroker`・`AsyncPublishStrategy`・`AsyncSubscribeStrategy`・`Messaging/`・`GlobalMessageBroker`)をコピーせずにリンクしています。ソースを直せば、そのままベンチマークに反映されます
+- 測る実装は、Unityプロジェクトのソース(`IMessageBroker`・`AsyncSubscribeStrategy`・`Messaging/`・`GlobalMessageBroker`)をコピーせずにリンクしています。ソースを直せば、そのままベンチマークに反映されます
 
 | クラス | 測るもの |
 |---|---|
 | `PublishBenchmark` | 同期のハンドラーへの`Publish`。購読者が0・1・10・100のとき。基準はC#の`event` |
-| `AsyncPublishBenchmark` | `SubscribeAwait`の購読者への`Publish`(ハンドラーは同期的に完了する)。両方にある`Sequential`と`Parallel`を、購読者が1・10のときで比べる |
+| `SubscribeAwaitBenchmark` | `SubscribeAwait`の購読者への`Publish`。4つのストラテジーすべてを、ハンドラーが同期的に完了する場合と本当に待つ場合、購読者が1・10のときで比べる |
 | `SubscribeBenchmark` | 購読して、すぐに解除する。計測の前から登録されている購読者が0・100のとき |
+
+条件は、実際の使い方に揃えています。
+
+- 発行や購読は、具体的な型ではなくインターフェース(`IMessageBroker`・ZeroMessengerの`IMessagePublisher<T>`/`IMessageSubscriber<T>`)を通して呼ぶ。利用者はDIで受け取ったインターフェースを通して呼ぶためです
+- `PublishBenchmark`で購読者が0のときも、一度購読して解除し、型ごとのチャンネルを作っておく。実際のゲームでは、チャンネルが無い状態はほぼ起きないためです
+- ハンドラーが本当に待つ場合は、完了していないタスクを返し、発行の後で完了させるところまでを1回として測る。待ちに使うタスクの元(`Signals.cs`)は使い回すので、計測のための確保は入りません
 
 ## 回し方
 
@@ -24,12 +30,13 @@
 $env:PATH = "C:\Program Files\dotnet;$env:PATH"
 cd Benchmarks\Supplement.Benchmarks
 
-dotnet run -c Release -- --filter *                       # すべて(10〜15分ほど)
+dotnet run -c Release -- --filter * --launchCount 3       # すべて。結果に使うのはこれ
 dotnet run -c Release -- --filter *PublishBenchmark*      # 一部だけ
 dotnet run -c Release -- --filter * --job dry             # 動くかだけ確かめる(数値は使えない)
 dotnet run -c Release -- --filter * --exporters github    # GitHubに貼れるMarkdownも出す
 ```
 
+- 1つのプロセスだけで測ると、実行するたびに1割ほど値が動きます。結果に使うときは`--launchCount 3`で別々のプロセスで3回測ります。差が誤差(`Error`の列)より小さいものは、結論にしません
 - Git Bashでは`*`がファイル名に展開されるので、`--filter '*'`のように引用符で囲みます
 - 結果は`BenchmarkDotNet.Artifacts/results/`に出ます(git管理外)
 - ブラウザやUnityなど重いアプリは閉じて測ります

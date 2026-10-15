@@ -17,30 +17,40 @@ namespace Supplement.Core
         internal long Version;
         // リストにつながっているか。解除が2回走ったり、Clearの後に解除が走ったりしても、つなぎ替えを1回にするため。
         internal bool IsLinked;
+        // 同期の購読者のハンドラー。非同期の購読者ではnull。発行が仮想呼び出しを通さずに直接呼ぶために持つ。
+        internal readonly Action<T> SyncHandler;
 
         private readonly MessageChannel<T> channel;
-        private int disposed;
+        // 解除済みか。MessageChannelがgateのlockの中で立てる。発行はlockを取らずに読む。
+        private bool disposed;
 
-        protected MessageSubscriber(MessageChannel<T> channel)
+        protected MessageSubscriber(MessageChannel<T> channel, Action<T> syncHandler = null)
         {
             this.channel = channel;
+            SyncHandler = syncHandler;
         }
 
-        public bool IsDisposed => Volatile.Read(ref disposed) != 0;
+        public bool IsDisposed => Volatile.Read(ref disposed);
 
         // Publishから呼ぶ。非同期のハンドラーは開始するだけで、完了を待たない。
         public abstract void Invoke(T message);
 
-        // PublishAsyncから呼ぶ。戻り値はハンドラーが完了すると完了する。
-        public abstract UniTask InvokeAsync(T message, CancellationToken cancellationToken);
-
-        // 2回目以降は何もしない。
+        // 2回目以降は何もしない。解除済みの印はチャンネルのlockの中で立てる。
+        // 解除はどのみちlockを取るので、Interlockedで別に印を立てるより、アトミックな操作が1回少なくて済む。
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+            if (IsDisposed || !channel.Remove(this)) return;
 
-            channel.Remove(this);
             OnDisposed();
+        }
+
+        // MessageChannelがgateのlockの中で呼ぶ。すでに解除済みならfalseを返す。
+        internal bool MarkDisposed()
+        {
+            if (disposed) return false;
+
+            Volatile.Write(ref disposed, true);
+            return true;
         }
 
         protected virtual void OnDisposed()
@@ -50,22 +60,14 @@ namespace Supplement.Core
 
     internal sealed class SyncMessageSubscriber<T> : MessageSubscriber<T> where T : struct
     {
-        private readonly Action<T> handler;
-
-        public SyncMessageSubscriber(MessageChannel<T> channel, Action<T> handler) : base(channel)
+        public SyncMessageSubscriber(MessageChannel<T> channel, Action<T> handler) : base(channel, handler)
         {
-            this.handler = handler;
         }
 
+        // 発行はSyncHandlerを直接呼ぶので、ここは通らない。
         public override void Invoke(T message)
         {
-            handler(message);
-        }
-
-        public override UniTask InvokeAsync(T message, CancellationToken cancellationToken)
-        {
-            handler(message);
-            return UniTask.CompletedTask;
+            SyncHandler(message);
         }
     }
 
@@ -83,11 +85,6 @@ namespace Supplement.Core
 
         protected CancellationToken LifetimeToken => lifetime.Token;
 
-        public override void Invoke(T message)
-        {
-            InvokeAsync(message, CancellationToken.None).Forget();
-        }
-
         protected override void OnDisposed()
         {
             lifetime.Cancel();
@@ -96,13 +93,8 @@ namespace Supplement.Core
         // ハンドラーを呼ぶ。tokenの取り消し(購読の解除・Switchでの切り替え)で終わった場合は、正常に終わったものとして扱う。
         // ハンドラーが同期的に完了した場合はasyncメソッドを通さない。エディタ(Debugビルド)ではasyncメソッドの
         // ステートマシンがクラスになり、同期的に完了しても呼ぶたびに確保されるため。
-        protected UniTask RunAsync(T message, CancellationToken token, CancellationToken publishToken)
+        protected UniTask RunAsync(T message, CancellationToken token)
         {
-            if (publishToken.CanBeCanceled)
-            {
-                return RunLinkedAsync(message, token, publishToken);
-            }
-
             UniTask task;
             try
             {
@@ -147,20 +139,6 @@ namespace Supplement.Core
             {
             }
         }
-
-        // PublishAsyncのトークンが取り消せる場合。つないだトークンを作るため、どのみち確保が起きる。
-        private async UniTask RunLinkedAsync(T message, CancellationToken token, CancellationToken publishToken)
-        {
-            publishToken.ThrowIfCancellationRequested();
-            try
-            {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, publishToken);
-                await handler(message, linked.Token);
-            }
-            catch (OperationCanceledException) when (token.IsCancellationRequested)
-            {
-            }
-        }
     }
 
     internal sealed class ParallelAsyncMessageSubscriber<T> : AsyncMessageSubscriber<T> where T : struct
@@ -170,9 +148,9 @@ namespace Supplement.Core
         {
         }
 
-        public override UniTask InvokeAsync(T message, CancellationToken cancellationToken)
+        public override void Invoke(T message)
         {
-            return RunAsync(message, LifetimeToken, cancellationToken);
+            RunAsync(message, LifetimeToken).Forget();
         }
     }
 
@@ -185,21 +163,24 @@ namespace Supplement.Core
         {
         }
 
-        public override UniTask InvokeAsync(T message, CancellationToken cancellationToken)
+        public override void Invoke(T message)
         {
             if (Interlocked.CompareExchange(ref running, 1, 0) != 0)
             {
-                return UniTask.CompletedTask;
+                return;
             }
 
-            var task = RunAsync(message, LifetimeToken, cancellationToken);
+            var task = RunAsync(message, LifetimeToken);
             // 同期的に完了した場合はasyncメソッドを通さない(RunAsyncと同じ理由)。
-            // このときのtaskはプールした元を持たないので、呼び出し元がそのまま待ってよい。
-            if (!task.Status.IsCompleted()) 
-                return ReleaseAfterAsync(task);
+            if (!task.Status.IsCompleted())
+            {
+                ReleaseAfterAsync(task).Forget();
+                return;
+            }
 
             Volatile.Write(ref running, 0);
-            return task;
+            // 例外で完了していれば、ほかのストラテジーと同じくUniTaskScheduler.UnobservedTaskExceptionに流す。
+            task.Forget();
         }
 
         private async UniTask ReleaseAfterAsync(UniTask task)
@@ -227,7 +208,7 @@ namespace Supplement.Core
         {
         }
 
-        public override UniTask InvokeAsync(T message, CancellationToken cancellationToken)
+        public override void Invoke(T message)
         {
             var source = new CancellationTokenSource();
             CancellationTokenSource previous;
@@ -235,14 +216,14 @@ namespace Supplement.Core
             {
                 if (IsDisposed)
                 {
-                    return UniTask.CompletedTask;
+                    return;
                 }
                 previous = current;
                 current = source;
             }
 
             previous?.Cancel();
-            return RunAndReleaseAsync(message, source, cancellationToken);
+            RunAndReleaseAsync(message, source).Forget();
         }
 
         protected override void OnDisposed()
@@ -258,12 +239,11 @@ namespace Supplement.Core
             source?.Cancel();
         }
 
-        private async UniTask RunAndReleaseAsync(T message, CancellationTokenSource source,
-            CancellationToken cancellationToken)
+        private async UniTask RunAndReleaseAsync(T message, CancellationTokenSource source)
         {
             try
             {
-                await RunAsync(message, source.Token, cancellationToken);
+                await RunAsync(message, source.Token);
             }
             finally
             {
@@ -278,7 +258,7 @@ namespace Supplement.Core
     internal sealed class SequentialAsyncMessageSubscriber<T> : AsyncMessageSubscriber<T> where T : struct
     {
         // 処理を待っているメッセージ。lockの対象も兼ねる。
-        private readonly Queue<Entry> queue = new Queue<Entry>();
+        private readonly Queue<T> queue = new Queue<T>();
         private bool running;
 
         public SequentialAsyncMessageSubscriber(MessageChannel<T> channel, Func<T, CancellationToken, UniTask> handler)
@@ -288,52 +268,14 @@ namespace Supplement.Core
 
         public override void Invoke(T message)
         {
-            Enqueue(new Entry(message, CancellationToken.None, null));
-        }
-
-        public override UniTask InvokeAsync(T message, CancellationToken cancellationToken)
-        {
-            var pending = new PendingPublish(cancellationToken);
-            Enqueue(new Entry(message, cancellationToken, pending));
-            return pending.Task;
-        }
-
-        protected override void OnDisposed()
-        {
-            base.OnDisposed();
-
-            // まだ始まっていない分は呼ばずに完了にする。発行側がPublishAsyncで待ち続けないようにするため。
-            while (true)
-            {
-                Entry entry;
-                lock (queue)
-                {
-                    if (queue.Count == 0) return;
-                    entry = queue.Dequeue();
-                }
-                entry.Pending?.TrySetResult();
-            }
-        }
-
-        private void Enqueue(Entry entry)
-        {
-            bool accepted;
-            var start = false;
+            bool start;
             lock (queue)
             {
-                accepted = !IsDisposed;
-                if (accepted)
-                {
-                    queue.Enqueue(entry);
-                    start = !running;
-                    running = true;
-                }
-            }
+                if (IsDisposed) return;
 
-            if (!accepted)
-            {
-                entry.Pending?.TrySetResult();
-                return;
+                queue.Enqueue(message);
+                start = !running;
+                running = true;
             }
 
             if (start)
@@ -342,155 +284,60 @@ namespace Supplement.Core
             }
         }
 
-        // 待っているメッセージを1つずつ処理する。処理中に届いたメッセージはEnqueueがキューに足すだけで、ここで続けて処理する。
+        protected override void OnDisposed()
+        {
+            base.OnDisposed();
+
+            // まだ始まっていない分は呼ばずに捨てる。
+            lock (queue)
+            {
+                queue.Clear();
+            }
+        }
+
+        // 待っているメッセージを1つずつ処理する。処理中に届いたメッセージはInvokeがキューに足すだけで、ここで続けて処理する。
         // 同期的に完了する間はこのループで回し、asyncメソッドは処理が終わっていないときだけ通す(RunAsyncと同じ理由)。
         private void Pump()
         {
             while (true)
             {
-                Entry entry;
+                T message;
                 lock (queue)
                 {
-                    if (queue.Count == 0)
+                    if (queue.Count == 0 || IsDisposed)
                     {
+                        queue.Clear();
                         running = false;
                         return;
                     }
-                    entry = queue.Dequeue();
+                    message = queue.Dequeue();
                 }
 
-                if (IsDisposed)
-                {
-                    entry.Pending?.TrySetResult();
-                    continue;
-                }
-
-                // キューで待っている間にPublishAsyncのトークンが取り消され、もう完了にした分は呼ばない。
-                if (entry.Pending is { IsCompleted: true })
-                {
-                    continue;
-                }
-
-                var task = RunAsync(entry.Message, LifetimeToken, entry.PublishToken);
-                var awaiter = task.GetAwaiter();
-                if (!awaiter.IsCompleted)
+                var task = RunAsync(message, LifetimeToken);
+                if (!task.Status.IsCompleted())
                 {
                     // 完了を待ってから続きを処理する。runningは立てたままなので、その間に届いたメッセージはキューに溜まる。
-                    ContinuePumpAsync(task, entry).Forget();
+                    ContinuePumpAsync(task).Forget();
                     return;
                 }
 
-                Exception error = null;
-                try
-                {
-                    awaiter.GetResult();
-                }
-                catch (Exception e)
-                {
-                    error = e;
-                }
-                Complete(entry, error);
+                // 例外で完了していれば、ほかのストラテジーと同じくUniTaskScheduler.UnobservedTaskExceptionに流す。
+                task.Forget();
             }
         }
 
-        private async UniTaskVoid ContinuePumpAsync(UniTask task, Entry entry)
+        private async UniTaskVoid ContinuePumpAsync(UniTask task)
         {
-            Exception error = null;
             try
             {
                 await task;
             }
             catch (Exception e)
             {
-                error = e;
+                // ほかのストラテジーのForgetと同じく、UniTaskScheduler.UnobservedTaskExceptionに流す。
+                UniTask.FromException(e).Forget();
             }
-            Complete(entry, error);
             Pump();
-        }
-
-        private static void Complete(Entry entry, Exception error)
-        {
-            if (entry.Pending == null)
-            {
-                if (error != null)
-                {
-                    // ほかの戦略のForgetと同じく、UniTaskScheduler.UnobservedTaskExceptionに流す。
-                    UniTask.FromException(error).Forget();
-                }
-                return;
-            }
-
-            if (error == null)
-            {
-                entry.Pending.TrySetResult();
-            }
-            else if (error is OperationCanceledException canceled)
-            {
-                entry.Pending.TrySetCanceled(canceled.CancellationToken);
-            }
-            else
-            {
-                entry.Pending.TrySetException(error);
-            }
-        }
-
-        private readonly struct Entry
-        {
-            public readonly T Message;
-            public readonly CancellationToken PublishToken;
-            // PublishAsyncで待っている場合だけ持つ。Publishから届いたメッセージはnull。
-            public readonly PendingPublish Pending;
-
-            public Entry(T message, CancellationToken publishToken, PendingPublish pending)
-            {
-                Message = message;
-                PublishToken = publishToken;
-                Pending = pending;
-            }
-        }
-
-        // PublishAsyncで待っている発行。トークンが取り消されたら、キューで待っている間でもその場で取り消しにする。
-        // 取り消し・処理の完了・購読の解除が重なって何度完了にしても安全なよう、プールしない完了ソースを使う。
-        private sealed class PendingPublish
-        {
-            private readonly UniTaskCompletionSource source = new UniTaskCompletionSource();
-            private readonly CancellationToken token;
-            private readonly CancellationTokenRegistration registration;
-
-            public PendingPublish(CancellationToken token)
-            {
-                this.token = token;
-                if (token.CanBeCanceled)
-                {
-                    registration = token.Register(static state =>
-                    {
-                        var self = (PendingPublish)state;
-                        self.source.TrySetCanceled(self.token);
-                    }, this);
-                }
-            }
-
-            public UniTask Task => source.Task;
-
-            public bool IsCompleted => source.Task.Status.IsCompleted();
-
-            public void TrySetResult()
-            {
-                source.TrySetResult();
-                registration.Dispose();
-            }
-
-            public void TrySetCanceled(CancellationToken cancellationToken)
-            {
-                source.TrySetCanceled(cancellationToken);
-                registration.Dispose();
-            }
-
-            public void TrySetException(Exception exception)
-            {
-                source.TrySetException(exception);
-                registration.Dispose();
-            }
         }
     }
 }

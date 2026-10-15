@@ -6,9 +6,7 @@
 
 ブランチは`feature/v1.4.1`です。中身は[変更履歴](../changelog.md)の未リリースの節を見てください。
 
-- [ ] `PublishAsync`を外した後のコードを、Unityでコンパイルし、EditMode・PlayModeのテストを回す([テスト](testing.md))
 - [ ] ベンチマークを回し直し、[ベンチマーク](benchmark.md)の数値・日付・環境を今のコードに合わせる。計測はメンテナーが行う
-- [ ] `Benchmarks/Supplement.Benchmarks/Signals.cs`を含めてコミットする
 - [ ] リリースの手順(`/release`)で`main`に入れ、タグを付ける
 
 ## 決めていないこと

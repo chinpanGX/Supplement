@@ -3,12 +3,12 @@
 ## 1.4.1(未リリース)
 
 ### 互換性が壊れる変更
-- `IMessageBroker`に`PublishAsync`・`SubscribeAwait`を足し、`IDisposable`を継承した。外部ライブラリに依存しない実装(`MessageBroker`)で非同期の購読を扱えるようにするため。`IMessageBroker`を自分で実装している場合は、これらのメンバーの実装が必要になる
+- `IMessageBroker`に`SubscribeAwait`を足し、`IDisposable`を継承した。外部ライブラリに依存しない実装(`MessageBroker`)で非同期の購読を扱えるようにするため。`IMessageBroker`を自分で実装している場合は、これらのメンバーの実装が必要になる
 
 ### 追加
 - [MessageBroker](features/messaging.md): 外部ライブラリに依存しない`IMessageBroker`の実装。アプリ全体で共有する`MessageBroker.Default`と、登録用の`RegisterMessageBroker()`
-- [IMessageBroker](features/messaging.md)の非同期の購読`SubscribeAwait`(`AsyncSubscribeStrategy`: `Sequential`・`Parallel`・`Switch`・`Drop`)と、完了を待つ発行`PublishAsync`(`AsyncPublishStrategy`: `Parallel`・`Sequential`)
-- `GlobalMessageBroker`(別パッケージ`com.chinpangx.supplement.zeromessenger` 1.1.0。本体の1.4.1以上が必要)が、`PublishAsync`・`SubscribeAwait`・`Dispose`に対応した
+- [IMessageBroker](features/messaging.md)の非同期の購読`SubscribeAwait`(`AsyncSubscribeStrategy`: `Sequential`・`Parallel`・`Switch`・`Drop`)
+- `GlobalMessageBroker`(別パッケージ`com.chinpangx.supplement.zeromessenger` 1.1.0。本体の1.4.1以上が必要)が、`SubscribeAwait`・`Dispose`に対応した
 
 ## 1.4.0
 
