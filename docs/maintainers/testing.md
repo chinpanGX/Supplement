@@ -6,7 +6,7 @@
 |---|---|---|
 | `_EditMode/` | EditMode | 各機能の動作と、GCアロケーションのテスト |
 | `_MessagePack/` | EditMode | MessagePackのセーブデータと`AesHmacCryptoAlgorithm`のテスト(MessagePackを参照するため、アセンブリを分けている) |
-| `_PlayMode/` | PlayMode | PlayerLoop・入力・画面を使うテスト(`UpdateDispatcher`・`BackKeyReceiver`・サンプル画面) |
+| `_PlayMode/` | PlayMode | PlayerLoop・入力・画面・`OnDestroy`を使うテスト(`UpdateDispatcher`・`BackKeyReceiver`・`HierarchyMessageBroker`の破棄・サンプル画面) |
 | `Domain/`・`Application/`・`Infrastructure/`・`Presentation/` | — | テストとサンプルで使う型(リポジトリ・画面など) |
 
 ## 回し方
@@ -21,6 +21,8 @@ unity command run_tests --mode editor --timeout 600
 unity command run_tests --mode playmode --filter TestUpdateDispatcher --async_tests true
 unity command test_status    # "status"が"completed"になるまで繰り返す
 unity command run_tests --mode playmode --filter TestBackKeyReceiver --async_tests true
+unity command test_status
+unity command run_tests --mode playmode --filter TestHierarchyMessageBrokerLifetime --async_tests true
 unity command test_status
 ```
 

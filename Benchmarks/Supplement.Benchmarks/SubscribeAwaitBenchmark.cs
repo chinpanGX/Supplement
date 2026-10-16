@@ -22,7 +22,9 @@ namespace Supplement.Benchmarks
         private UniTaskSignal[] supplementSignals;
         private ValueTaskSignal[] zeroSignals;
 
-        [ParamsAllValues]
+        // ThrottleFirstLastはZeroMessengerに無く比べられないため、測らない。
+        [Params(SupplementSubscribeStrategy.Sequential, SupplementSubscribeStrategy.Parallel,
+            SupplementSubscribeStrategy.Switch, SupplementSubscribeStrategy.Drop)]
         public SupplementSubscribeStrategy SubscribeStrategy { get; set; }
 
         [ParamsAllValues]

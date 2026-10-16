@@ -29,7 +29,7 @@ https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack
 | UniTask(2.5.11以上) | 非同期処理 |
 | VContainer(1.19.0以上) | DIコンテナへの登録、`RecycleRenderer`での生成 |
 | Addressables(2.7.6以上) | `AddressablesAssetLoader` |
-| ZeroMessenger(`Supplement.ZeroMessenger`を使う場合) | `GlobalMessageBroker` |
+| ZeroMessenger(`Supplement.ZeroMessenger`を使う場合) | `GlobalMessageBroker`(非推奨) |
 | MessagePack 3.x(`Supplement.MessagePack`を使う場合) | MessagePackのセーブデータ。本体(`MessagePack.dll`とSource Generator)はNuGetにしか無いため、NuGetForUnityで`MessagePack`を入れる |
 | MessagePackのUnity拡張(任意) | DTOに`Vector3`などUnityの型を入れる場合だけ要る。Package Managerで`https://github.com/MessagePack-CSharp/MessagePack-CSharp.git?path=src/MessagePack.UnityClient/Assets/Scripts/MessagePack#v3.1.9`のように、NuGetの本体と同じ版のタグを付けて入れる |
 | Input System(任意) | 入っていれば`BackKeyReceiver`がInput Systemから戻るボタンを読む。無ければ旧Input Managerを使う |

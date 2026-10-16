@@ -3,12 +3,22 @@
 ## 1.4.1(未リリース)
 
 ### 互換性が壊れる変更
+- `HierarchyMessageBroker`の動きを`MessageBroker`に合わせた。2つのブローカーで動きが違うと、使い分けるときに間違えやすいため
+  - ハンドラーの例外を`AggregateException`で投げず、`UniTaskScheduler.UnobservedTaskException`に流す
+  - 同じデリゲートを重ねて登録すると、登録した回数だけ呼ぶ(以前は1回だけ)
+  - 発行中に解除した購読者には、その発行でも届けない(以前は開始時点の購読者に届けていた)
 - `IMessageBroker`に`SubscribeAwait`を足し、`IDisposable`を継承した。外部ライブラリに依存しない実装(`MessageBroker`)で非同期の購読を扱えるようにするため。`IMessageBroker`を自分で実装している場合は、これらのメンバーの実装が必要になる
 
 ### 追加
 - [MessageBroker](features/messaging.md): 外部ライブラリに依存しない`IMessageBroker`の実装。アプリ全体で共有する`MessageBroker.Default`と、登録用の`RegisterMessageBroker()`
 - [IMessageBroker](features/messaging.md)の非同期の購読`SubscribeAwait`(`AsyncSubscribeStrategy`: `Sequential`・`Parallel`・`Switch`・`Drop`)
-- `GlobalMessageBroker`(別パッケージ`com.chinpangx.supplement.zeromessenger` 1.1.0。本体の1.4.1以上が必要)が、`SubscribeAwait`・`Dispose`に対応した
+- `AsyncSubscribeStrategy.ThrottleFirstLast`: 処理中に届いたメッセージは最後の1件だけ残し、前の処理が終わってから処理する
+- `FirstAsync`(`IMessageBroker`の拡張メソッドと`HierarchyMessageBroker`): 次に発行されたメッセージを1件だけ待つ
+- `HierarchyMessageBroker.SubscribeAwait`。GameObjectが破棄されると、`HierarchyMessageBroker`の購読をすべて解除するようになった
+- `GlobalMessageBroker`(別パッケージ`com.chinpangx.supplement.zeromessenger` 1.1.0。本体の1.4.1以上が必要)が、`SubscribeAwait`・`Dispose`に対応した(`ThrottleFirstLast`には対応しない)
+
+### 非推奨
+- `GlobalMessageBroker`(ZeroMessengerとの連携)を`[Obsolete]`にした。外部ライブラリに依存しない`MessageBroker`で同じことができるため。`RegisterMessageBroker()`に置き換える。今後のバージョンで削除する
 
 ## 1.4.0
 

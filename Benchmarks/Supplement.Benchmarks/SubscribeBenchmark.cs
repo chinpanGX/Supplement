@@ -1,3 +1,5 @@
+// GlobalMessageBrokerは非推奨だが、ZeroMessengerとの比較のために測り続ける。
+#pragma warning disable CS0618
 using System;
 using BenchmarkDotNet.Attributes;
 using Supplement.Core;

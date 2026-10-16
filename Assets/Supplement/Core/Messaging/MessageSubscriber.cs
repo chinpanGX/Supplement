@@ -340,4 +340,109 @@ namespace Supplement.Core
             Pump();
         }
     }
+
+    // Sequentialのキューを1件の枠にしたもの。処理中に届いたメッセージは枠を上書きし、最後の1件だけを後で処理する。
+    internal sealed class ThrottleFirstLastAsyncMessageSubscriber<T> : AsyncMessageSubscriber<T> where T : struct
+    {
+        private readonly object gate = new object();
+        // 処理を待っているメッセージ。hasPendingがtrueのときだけ意味を持つ。
+        private T pending;
+        private bool hasPending;
+        private bool running;
+
+        public ThrottleFirstLastAsyncMessageSubscriber(MessageChannel<T> channel, Func<T, CancellationToken, UniTask> handler)
+            : base(channel, handler)
+        {
+        }
+
+        public override void Invoke(T message)
+        {
+            lock (gate)
+            {
+                if (IsDisposed) return;
+
+                if (running)
+                {
+                    pending = message;
+                    hasPending = true;
+                    return;
+                }
+                running = true;
+            }
+
+            Pump(message);
+        }
+
+        protected override void OnDisposed()
+        {
+            base.OnDisposed();
+
+            // まだ始まっていない分は呼ばずに捨てる。
+            lock (gate)
+            {
+                pending = default;
+                hasPending = false;
+            }
+        }
+
+        // messageを処理し、その間に届いた最後の1件があれば続けて処理する。
+        // 同期的に完了する間はこのループで回し、asyncメソッドは処理が終わっていないときだけ通す(RunAsyncと同じ理由)。
+        private void Pump(T message)
+        {
+            while (true)
+            {
+                var task = RunAsync(message, LifetimeToken);
+                if (!task.Status.IsCompleted())
+                {
+                    // 完了を待ってから続きを処理する。runningは立てたままなので、その間に届いたメッセージは枠を上書きする。
+                    ContinuePumpAsync(task).Forget();
+                    return;
+                }
+
+                // 例外で完了していれば、ほかのストラテジーと同じくUniTaskScheduler.UnobservedTaskExceptionに流す。
+                task.Forget();
+
+                if (!TryTakePending(out message)) return;
+            }
+        }
+
+        // 待っているメッセージを取り出す。無ければ処理中の印を下ろしてfalseを返す。
+        private bool TryTakePending(out T message)
+        {
+            lock (gate)
+            {
+                if (!hasPending || IsDisposed)
+                {
+                    pending = default;
+                    hasPending = false;
+                    running = false;
+                    message = default;
+                    return false;
+                }
+
+                message = pending;
+                pending = default;
+                hasPending = false;
+                return true;
+            }
+        }
+
+        private async UniTaskVoid ContinuePumpAsync(UniTask task)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception e)
+            {
+                // ほかのストラテジーのForgetと同じく、UniTaskScheduler.UnobservedTaskExceptionに流す。
+                UniTask.FromException(e).Forget();
+            }
+
+            if (TryTakePending(out var message))
+            {
+                Pump(message);
+            }
+        }
+    }
 }

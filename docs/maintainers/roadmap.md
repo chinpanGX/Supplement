@@ -11,6 +11,7 @@
 
 ## 決めていないこと
 
+- 非推奨にした`GlobalMessageBroker`(別パッケージ`com.chinpangx.supplement.zeromessenger`)を、どのバージョンで削除するか。パッケージごと終わらせるか
 - Unity上で`MessageBroker`を測るか(Performance TestingとIL2CPPのプレイヤーで)。測るなら`Packages/manifest.json`に依存が増えます
 
 ## やらないこと

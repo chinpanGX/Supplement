@@ -6,7 +6,7 @@
 | ------------------------ | ------------------------------------------ | ---------------------------------- |
 | `IMessageBroker`         | アプリ全体                                      | `Supplement.Core`(抽象)              |
 | `MessageBroker`          | アプリ全体(`IMessageBroker`の実装。外部ライブラリに依存しない)   | `Supplement.Core`                  |
-| `GlobalMessageBroker`    | アプリ全体(`IMessageBroker`のZeroMessengerによる実装) | `Supplement.ZeroMessenger`(別パッケージ) |
+| `GlobalMessageBroker`    | アプリ全体(`IMessageBroker`のZeroMessengerによる実装。非推奨) | `Supplement.ZeroMessenger`(別パッケージ) |
 | `HierarchyMessageBroker` | 自身より下の階層のコンポーネントからだけ                       | `Supplement.Unity`                 |
 
 メッセージの型は構造体(`where T : struct`)に限ります。
@@ -21,11 +21,7 @@
   builder.RegisterMessageBroker();
   ```
 
-  ZeroMessengerの実装を使う場合は、拡張メソッドは無いので直接登録します
-
-  ```csharp
-  builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
-  ```
+  ZeroMessengerの実装(`GlobalMessageBroker`)は非推奨です。`RegisterMessageBroker()`に置き換えてください
 
 - `HierarchyMessageBroker`: DIへの登録は要りません。受け取る側のGameObjectにコンポーネントとして付けます
 
@@ -61,8 +57,20 @@ messageBroker.SubscribeAwait<ItemAmountChanged>(async (x, ct) =>
 | `Parallel` | 前の処理を待たずに、次を始める |
 | `Switch` | 処理中のハンドラーに渡したトークンを取り消し、次を始める |
 | `Drop` | 届いたメッセージを捨てる |
+| `ThrottleFirstLast` | 最後の1件だけ残し、前の処理が終わってからそれを処理する。それより前に届いたものは捨てる |
 
 発行して、ハンドラーの完了を待つ方法はありません。発行する側は購読者を知らない前提だからです。ほかの処理の完了を待ってから続けたい場合は、メッセージではなく、その処理を直接呼んで待ってください。
+
+### 次のメッセージを待つ
+
+`FirstAsync`で、次に発行されたメッセージを1件だけ待てます。受け取ると購読を解除します。
+
+```csharp
+var message = await messageBroker.FirstAsync<TutorialStepCompleted>(destroyCancellationToken);
+```
+
+- 呼んだ時点から購読するので、それより前に発行されたメッセージは受け取りません
+- ブローカーを破棄しても完了しません。待つのをやめるときはトークンで取り消してください(`OperationCanceledException`で完了します)
 
 ### 動き(MessageBroker)
 
@@ -74,7 +82,7 @@ messageBroker.SubscribeAwait<ItemAmountChanged>(async (x, ct) =>
 - 同じデリゲートを重ねて登録すると、登録した回数だけ呼びます
 - 発行中に登録しても、その発行には届きません(次の発行から届きます)。発行中に解除した購読者には、その発行でもそれ以降は届けません
 - 発行・購読・解除は、どのスレッドから呼んでも構いません
-- 同期のハンドラーへの`Publish`はGCアロケーションを起こしません。同期的に完了する非同期のハンドラー(`Sequential`・`Parallel`・`Drop`)も同じです。`Switch`はメッセージごとに`CancellationTokenSource`を作ります
+- 同期のハンドラーへの`Publish`はGCアロケーションを起こしません。同期的に完了する非同期のハンドラー(`Sequential`・`Parallel`・`Drop`・`ThrottleFirstLast`)も同じです。`Switch`はメッセージごとに`CancellationTokenSource`を作ります
 - ブローカーを`Dispose`すると、購読をすべて解除し、以後の`Publish`・`Subscribe`などは`ObjectDisposedException`を投げます
 
 ### 注意
@@ -82,6 +90,7 @@ messageBroker.SubscribeAwait<ItemAmountChanged>(async (x, ct) =>
 - `MessageBroker.Default`は`Dispose`しないでください。アプリ全体で使えなくなります。`RegisterMessageBroker()`は`RegisterInstance`で登録するので、コンテナを破棄しても`Default`は破棄されません
 - `Default`の購読は、解除するまでアプリの終了まで残ります。画面やオブジェクトより長く生きるため、購読者の破棄のタイミングで必ず解除してください
 - プレイモードに入るときのドメインリロードを無効にしていても、プレイの開始時に`Default`の購読はすべて解除されます(前回のプレイの購読は残りません)
+- `GlobalMessageBroker`は非推奨で、今後のバージョンで削除します。`ThrottleFirstLast`には対応していません(`NotSupportedException`を投げます)
 - `GlobalMessageBroker`は、ハンドラーの例外をZeroMessengerの扱いのまま返します。同期のハンドラーの例外は`Publish`の呼び出し元にそのまま投げ、残りの購読者は呼びません
 - `GlobalMessageBroker`を破棄すると、そのインスタンスを通じた購読だけを解除します。ZeroMessengerの`MessageBroker<T>.Default`を直接使った購読は解除しません
 
@@ -99,8 +108,9 @@ HierarchyMessageBroker.Publish(this, new IncrementItemAmountMessage { ItemId = i
 ```
 
 - `Publish(Component, T)`は、そのコンポーネントのGameObjectから親へ辿って、最初に見つかったブローカーに届けます(非アクティブなGameObjectのブローカーも見つけます)。見つからなければ何もしません
-- `Subscribe`は`IDisposable`を返します。破棄すると購読を解除します。子より長生きする購読者は、破棄のタイミングで解除してください
-- 同じデリゲートのインスタンスを重ねて登録しても、発行時に呼ぶのは1回だけです。登録の回数を数えているので、すべての戻り値を破棄するまで登録は残ります
-- 購読者は登録順に呼びます。購読者が例外を投げても残りの購読者は呼び、最後にまとめて`AggregateException`で投げます
-- 発行中に登録・解除しても、その発行は開始時点の購読者に届けます。変更は次の発行から反映されます
+- `Subscribe`・`SubscribeAwait`・`FirstAsync`と、発行の動き(呼ぶ順番・例外を呼び出し元に投げないこと・重ねて登録したときの回数・発行中の登録と解除)は、`MessageBroker`と同じです
+- `Subscribe`・`SubscribeAwait`は`IDisposable`を返します。破棄すると購読を解除します。子より長生きする購読者は、破棄のタイミングで解除してください
+- GameObjectが破棄されると、購読をすべて解除し、処理中の非同期のハンドラーに渡したトークンを取り消します。破棄の後に発行しても、例外にならず何も起きません
+- `FirstAsync`は、GameObjectの破棄では完了しません。`destroyCancellationToken`などを渡して取り消してください
+- 一度もアクティブにならなかったGameObjectは、Unityが`OnDestroy`を呼ばないため、破棄しても購読は解除されません
 - `Publish(Component, T)`は呼ぶたびに親を辿ってブローカーを探します。頻繁に発行する場合は、ブローカーを持っておいてインスタンスの`Publish(T)`を呼びます。発行そのものはGCアロケーションを起こしません

@@ -17,7 +17,9 @@ namespace Supplement.ZeroMessenger
     /// 破棄すると、このインスタンスを通じた購読をすべて解除する。ほかのインスタンスやZeroMessengerを直接使った購読は解除しない。
     /// ハンドラーが投げた例外の扱いは、ZeroMessengerに従う(同期のハンドラーの例外はそのまま呼び出し元に投げ、
     /// 残りのハンドラーは呼ばない。<see cref="Supplement.Core.MessageBroker"/>とは違う)。
+    /// 外部ライブラリに依存しない<see cref="Supplement.Core.MessageBroker"/>に移行するため、非推奨。
     /// </remarks>
+    [Obsolete("ZeroMessengerとの連携は非推奨になった。Supplement.Core.MessageBroker(登録はRegisterMessageBroker())を使う。")]
     public class GlobalMessageBroker : IMessageBroker
     {
         private readonly object gate = new object();
@@ -47,6 +49,9 @@ namespace Supplement.ZeroMessenger
         /// <inheritdoc/>
         /// <exception cref="ArgumentNullException"><paramref name="handler"/>がnull。</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="subscribeStrategy"/>が定義されていない値。</exception>
+        /// <exception cref="NotSupportedException">
+        /// <paramref name="subscribeStrategy"/>が<see cref="AsyncSubscribeStrategy.ThrottleFirstLast"/>(ZeroMessengerに無い)。
+        /// </exception>
         /// <exception cref="ObjectDisposedException">このブローカーは破棄されている。</exception>
         public IDisposable SubscribeAwait<T>(Func<T, CancellationToken, UniTask> handler,
             AsyncSubscribeStrategy subscribeStrategy = AsyncSubscribeStrategy.Sequential) where T : struct
@@ -60,6 +65,8 @@ namespace Supplement.ZeroMessenger
                 AsyncSubscribeStrategy.Parallel => ZeroAsyncSubscribeStrategy.Parallel,
                 AsyncSubscribeStrategy.Switch => ZeroAsyncSubscribeStrategy.Switch,
                 AsyncSubscribeStrategy.Drop => ZeroAsyncSubscribeStrategy.Drop,
+                AsyncSubscribeStrategy.ThrottleFirstLast => throw new NotSupportedException(
+                    $"{nameof(AsyncSubscribeStrategy.ThrottleFirstLast)} is not supported by ZeroMessenger."),
                 _ => throw new ArgumentOutOfRangeException(nameof(subscribeStrategy), subscribeStrategy, null),
             };
             return Track(MessageBroker<T>.Default.SubscribeAwait((x, ct) => handler(x, ct).AsValueTask(), strategy));

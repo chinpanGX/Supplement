@@ -80,6 +80,7 @@ namespace Supplement.Core
                 AsyncSubscribeStrategy.Parallel => new ParallelAsyncMessageSubscriber<T>(channel, handler),
                 AsyncSubscribeStrategy.Switch => new SwitchAsyncMessageSubscriber<T>(channel, handler),
                 AsyncSubscribeStrategy.Drop => new DropAsyncMessageSubscriber<T>(channel, handler),
+                AsyncSubscribeStrategy.ThrottleFirstLast => new ThrottleFirstLastAsyncMessageSubscriber<T>(channel, handler),
                 _ => throw new ArgumentOutOfRangeException(nameof(subscribeStrategy), subscribeStrategy, null),
             };
             return channel.Add(subscriber);

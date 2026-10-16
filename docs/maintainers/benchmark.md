@@ -13,7 +13,7 @@
 | クラス | 測るもの |
 |---|---|
 | `PublishBenchmark` | 同期のハンドラーへの`Publish`。購読者が0・1・10・100のとき。基準はC#の`event` |
-| `SubscribeAwaitBenchmark` | `SubscribeAwait`の購読者への`Publish`。4つのストラテジーすべてを、ハンドラーが同期的に完了する場合と本当に待つ場合、購読者が1・10のときで比べる |
+| `SubscribeAwaitBenchmark` | `SubscribeAwait`の購読者への`Publish`。ZeroMessengerにもある4つのストラテジー(`ThrottleFirstLast`以外)を、ハンドラーが同期的に完了する場合と本当に待つ場合、購読者が1・10のときで比べる |
 | `SubscribeBenchmark` | 購読して、すぐに解除する。計測の前から登録されている購読者が0・100のとき |
 
 条件は、実際の使い方に揃えています。

@@ -299,6 +299,7 @@ namespace Supplement.Tests.EditMode
         [TestCase(AsyncSubscribeStrategy.Sequential)]
         [TestCase(AsyncSubscribeStrategy.Parallel)]
         [TestCase(AsyncSubscribeStrategy.Drop)]
+        [TestCase(AsyncSubscribeStrategy.ThrottleFirstLast)]
         public void PublishToSynchronouslyCompletingAsyncSubscriberDoesNotAllocate(AsyncSubscribeStrategy strategy)
         {
             var sum = 0;
@@ -400,6 +401,91 @@ namespace Supplement.Tests.EditMode
             CollectionAssert.AreEqual(new[] { 1 }, handler.Canceled);
             await UniTask.CompletedTask;
         });
+
+        [UnityTest]
+        public IEnumerator ThrottleFirstLastRunsOnlyLastMessageReceivedWhileRunning() => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new GatedHandler();
+            broker.SubscribeAwait<SampleMessage>(handler.HandleAsync, AsyncSubscribeStrategy.ThrottleFirstLast);
+
+            broker.Publish(new SampleMessage { Value = 1 });
+            broker.Publish(new SampleMessage { Value = 2 });
+            broker.Publish(new SampleMessage { Value = 3 });
+            CollectionAssert.AreEqual(new[] { 1 }, handler.Started);
+
+            // 処理中に届いた2と3のうち、最後の3だけを処理する。
+            handler.Complete(0);
+            CollectionAssert.AreEqual(new[] { 1, 3 }, handler.Started);
+
+            // 待っているものが無ければ止まり、次の発行ですぐに始める。
+            handler.Complete(1);
+            broker.Publish(new SampleMessage { Value = 4 });
+            CollectionAssert.AreEqual(new[] { 1, 3, 4 }, handler.Started);
+            CollectionAssert.AreEqual(new[] { 1, 3 }, handler.Completed);
+            await UniTask.CompletedTask;
+        });
+
+        [UnityTest]
+        public IEnumerator DisposingThrottleFirstLastSubscriptionDropsPendingMessage() => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new GatedHandler();
+            var subscription = broker.SubscribeAwait<SampleMessage>(handler.HandleAsync, AsyncSubscribeStrategy.ThrottleFirstLast);
+
+            broker.Publish(new SampleMessage { Value = 1 });
+            broker.Publish(new SampleMessage { Value = 2 });
+            subscription.Dispose();
+
+            CollectionAssert.AreEqual(new[] { 1 }, handler.Started);
+            CollectionAssert.AreEqual(new[] { 1 }, handler.Canceled);
+            await UniTask.CompletedTask;
+        });
+
+        [UnityTest]
+        public IEnumerator FirstAsyncReceivesNextMessage() => UniTask.ToCoroutine(async () =>
+        {
+            broker.Publish(new SampleMessage { Value = 1 });
+            var task = broker.FirstAsync<SampleMessage>();
+
+            broker.Publish(new SampleMessage { Value = 2 });
+            broker.Publish(new SampleMessage { Value = 3 });
+
+            // 呼ぶ前の1は受け取らず、最初に届いた2で完了する。
+            Assert.AreEqual(2, (await task).Value);
+        });
+
+        [UnityTest]
+        public IEnumerator FirstAsyncIsCanceledByToken() => UniTask.ToCoroutine(async () =>
+        {
+            var received = 0;
+            broker.Subscribe<SampleMessage>(_ => received++);
+            using var cts = new CancellationTokenSource();
+            var task = broker.FirstAsync<SampleMessage>(cts.Token);
+
+            cts.Cancel();
+
+            var canceled = false;
+            try
+            {
+                await task;
+            }
+            catch (OperationCanceledException)
+            {
+                canceled = true;
+            }
+            Assert.IsTrue(canceled);
+
+            // 取り消した後の発行は、ほかの購読者にだけ届く。
+            broker.Publish(new SampleMessage());
+            Assert.AreEqual(1, received);
+        });
+
+        [Test]
+        public void FirstAsyncWithCanceledTokenCompletesAsCanceled()
+        {
+            var task = broker.FirstAsync<SampleMessage>(new CancellationToken(true));
+
+            Assert.AreEqual(UniTaskStatus.Canceled, task.Status);
+        }
 
         [Test]
         public void SubscribeAwaitThrowsForUndefinedStrategy()
