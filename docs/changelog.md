@@ -1,6 +1,6 @@
 # 変更履歴
 
-## 1.4.1(未リリース)
+## 1.5.0
 
 ### 互換性が壊れる変更
 - `HierarchyMessageBroker`の動きを`MessageBroker`に合わせた。2つのブローカーで動きが違うと、使い分けるときに間違えやすいため
@@ -15,7 +15,7 @@
 - `AsyncSubscribeStrategy.ThrottleFirstLast`: 処理中に届いたメッセージは最後の1件だけ残し、前の処理が終わってから処理する
 - `FirstAsync`(`IMessageBroker`の拡張メソッドと`HierarchyMessageBroker`): 次に発行されたメッセージを1件だけ待つ
 - `HierarchyMessageBroker.SubscribeAwait`。GameObjectが破棄されると、`HierarchyMessageBroker`の購読をすべて解除するようになった
-- `GlobalMessageBroker`(別パッケージ`com.chinpangx.supplement.zeromessenger` 1.1.0。本体の1.4.1以上が必要)が、`SubscribeAwait`・`Dispose`に対応した(`ThrottleFirstLast`には対応しない)
+- `GlobalMessageBroker`(別パッケージ`com.chinpangx.supplement.zeromessenger` 1.1.0。本体の1.5.0以上が必要)が、`SubscribeAwait`・`Dispose`に対応した(`ThrottleFirstLast`には対応しない)
 
 ### 非推奨
 - `GlobalMessageBroker`(ZeroMessengerとの連携)を`[Obsolete]`にした。外部ライブラリに依存しない`MessageBroker`で同じことができるため。`RegisterMessageBroker()`に置き換える。今後のバージョンで削除する

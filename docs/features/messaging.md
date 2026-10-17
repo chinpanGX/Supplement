@@ -58,8 +58,10 @@ var message = await messageBroker.FirstAsync<TutorialStepCompleted>(destroyCance
 - ハンドラーの例外は`Publish`の呼び出し元に投げず、`UniTaskScheduler.UnobservedTaskException`に流します(既定ではログに出ます)。残りの購読者は呼ばれます
 - 購読を解除すると、処理中の非同期のハンドラーのトークンを取り消します。取り消しによる`OperationCanceledException`は例外として扱いません
 - 発行中に登録した購読者は、次の発行から届きます。発行中に解除した購読者には、その発行でも届きません
+- 同じデリゲートを重ねて登録すると、登録した回数だけ呼びます
 - どのスレッドから呼んでも構いません
-- 発行はGCアロケーションを起こしません(`Switch`だけ、メッセージごとに`CancellationTokenSource`を作ります)
+- 同期のハンドラーと、同期的に完了する非同期のハンドラーへの発行は、GCアロケーションを起こしません(`Switch`だけ、メッセージごとに`CancellationTokenSource`を作ります)
+- ハンドラーが`null`なら`ArgumentNullException`、範囲外の`AsyncSubscribeStrategy`なら`ArgumentOutOfRangeException`を投げます。`Dispose`したブローカーは、以後の発行・購読で`ObjectDisposedException`を投げます
 
 ### 注意
 
@@ -89,6 +91,10 @@ HierarchyMessageBroker.Publish(this, new IncrementItemAmountMessage { ItemId = i
 ## GlobalMessageBroker(非推奨)
 
 ZeroMessengerで実装した`IMessageBroker`です(別パッケージ`Supplement.ZeroMessenger`)。今後のバージョンで削除します。`RegisterMessageBroker()`に置き換えてください。
+
+```csharp
+builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
+```
 
 `MessageBroker`との違い:
 

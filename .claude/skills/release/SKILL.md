@@ -1,6 +1,6 @@
 ---
 name: release
-description: "Supplementのリリースの準備をする。changelog・package.json・ドキュメント・コンパイルとテストを点検し、PRとタグの手前まで進める。引数にバージョン(1.4.1など)を渡す。省略すると、changelog.mdの未リリースのバージョンを使う。"
+description: "Supplementのリリースの準備をする。changelog・package.json・ドキュメント・コンパイルとテストを点検し、PRとタグの手前まで進める。引数にバージョン(1.5.0など)を渡す。省略すると、changelog.mdの未リリースのバージョンを使う。"
 ---
 
 # release
@@ -31,7 +31,7 @@ description: "Supplementのリリースの準備をする。changelog・package.
 ### 3. ドキュメントを点検する
 
 - `docs-lint`スキルを、引数なしで(すべてのページを)実行する
-- `docs/getting-started.md`のタグの書き方(`#1.4.0`など)が、実際に付けるタグの形と合っているかを確かめる
+- `docs/getting-started.md`のタグの書き方(`#v1.5.0`など)が、実際に付けるタグの形と合っているかを確かめる
 
 ### 4. コンパイルとテスト
 
@@ -50,4 +50,4 @@ description: "Supplementのリリースの準備をする。changelog・package.
 - 変更をまとめて報告し、次をユーザーに確かめてから行う
   1. コミット(メッセージはこれまでの`vX.Y.Z: 概要`の形。本文にchangelogの要点)
   2. `main`へのPRの作成(`gh pr create`)
-  3. マージの後のタグ付け(`git tag <バージョン>`と`git push origin <バージョン>`)
+  3. マージの後のタグ付け(`git tag v<バージョン>`と`git push origin v<バージョン>`。タグには`v`を付ける)

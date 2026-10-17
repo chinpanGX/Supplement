@@ -8,7 +8,7 @@ Package Managerの「Add package from git URL...」から、次のURLを追加�
 https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement
 ```
 
-`IMessageBroker`の実装(`MessageBroker`)は本体に入っています。ZeroMessengerで実装したものを使う場合は、別パッケージの次のURLも追加します。
+`IMessageBroker`の実装(`MessageBroker`)は本体に入っています。ZeroMessengerで実装したもの(非推奨)を使う場合は、別パッケージの次のURLも追加します。
 
 ```
 https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger
@@ -20,7 +20,7 @@ https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement.ZeroMessenger
 https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack
 ```
 
-特定のバージョンを使う場合は、URLの末尾に`#1.4.0`のようにタグを付けます。
+特定のバージョンを使う場合は、URLの末尾に`#v1.5.0`のようにタグを付けます。
 
 ## 依存パッケージ
 
@@ -43,7 +43,7 @@ https://github.com/chinpanGX/Supplement.git?path=Assets/Supplement.MessagePack
 | `Supplement.Loader.Abstractions` | アセットの読み込みの抽象 | あり |
 | `Supplement.Loader.AddressablesLoader` | Addressablesによる実装 | あり |
 | `Supplement.Unity.Editor` | エディタ拡張(BackKey Event Viewer) | エディタのみ |
-| `Supplement.ZeroMessenger`(別パッケージ) | `IMessageBroker`のZeroMessengerによる実装 | あり |
+| `Supplement.ZeroMessenger`(別パッケージ) | `IMessageBroker`のZeroMessengerによる実装(非推奨) | あり |
 | `Supplement.MessagePack`(別パッケージ) | セーブデータのMessagePackによる実装 | あり |
 
 名前空間はアセンブリ名と同じです。VContainerへの登録に使う拡張メソッド(`RegisterEncryptedFileStorage`など)は`Supplement.Unity`にあるので、`using Supplement.Unity;`が必要です。
