@@ -58,5 +58,14 @@ namespace Supplement.Unity
         {
             builder.Register<BootInitializer>(Lifetime.Singleton);
         }
+
+        /// <summary>
+        /// アプリ全体で共有する<see cref="MessageBroker.Default"/>を、<see cref="IMessageBroker"/>として登録する。
+        /// コンテナを破棄しても、<see cref="MessageBroker.Default"/>は破棄しない。
+        /// </summary>
+        public static void RegisterMessageBroker(this IContainerBuilder builder)
+        {
+            builder.RegisterInstance<IMessageBroker>(MessageBroker.Default);
+        }
     }
 }

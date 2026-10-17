@@ -12,7 +12,6 @@ using Supplement.Tests.Infrastructure;
 using Supplement.Tests.Presentation;
 using Supplement.Tests.Presentation.Abstractions;
 using Supplement.Unity;
-using Supplement.ZeroMessenger;
 using UnityEngine;
 using UnityEngine.TestTools;
 using VContainer;
@@ -33,7 +32,7 @@ namespace Supplement.Tests.PlayMode
                 var builder = new ContainerBuilder();
                 RegisterCommonServices(builder);
                 
-                builder.Register<IMessageBroker, GlobalMessageBroker>(Lifetime.Singleton);
+                builder.Register<IMessageBroker, MessageBroker>(Lifetime.Singleton);
                 builder.Register<SampleItemListPresenterVerGlobalMessaging>(Lifetime.Scoped)
                     .As<IPresenter, ISampleItemListPresenter>();
                 var rootContainer = builder.Build();

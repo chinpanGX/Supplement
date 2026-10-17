@@ -17,7 +17,7 @@ Supplementを使ってゲームを作る人向けのページです。
 | [起動時の初期化](features/boot-initializer.md) | `IBootInitializationTask`を優先度順に実行する`BootInitializer` | Core |
 | [セーブデータ](features/save-data.md) | 暗号化したファイルへの保存、Entity単位のリポジトリ、まとめて保存するバッファ | Core / Unity |
 | [MessagePackのセーブデータ](features/messagepack-save-data.md) | セーブデータをMessagePackのバイナリで保存する。圧縮と改ざん検知つき | MessagePack |
-| [メッセージング](features/messaging.md) | アプリ全体の`IMessageBroker`と、ヒエラルキーの中だけで届く`HierarchyMessageBroker` | Core / Unity / ZeroMessenger |
+| [メッセージング](features/messaging.md) | アプリ全体の`IMessageBroker`(実装の`MessageBroker`、非同期の購読つき)と、ヒエラルキーの中だけで届く`HierarchyMessageBroker` | Core / Unity / ZeroMessenger |
 | [多重実行の防止](features/tap-guard.md) | 非同期処理の再入を防ぐ`TapGuard` | Core |
 | [コレクション](features/collections.md) | 中身で比較できる`EquatableReadOnlyList`、UnityEngineに依存しない一時リスト`ScopedList`・`RentedList`、`DisposableBag` | Core |
 | [列挙型のキャッシュ](features/enum-cache.md) | 列挙型の値と名前をキャッシュする`EnumCache` | Core |
@@ -32,6 +32,9 @@ Supplementを使ってゲームを作る人向けのページです。
 
 Supplement自体を開発・修正する人向けのページです。
 
+- [作業の状態](maintainers/roadmap.md) — 進めているバージョンの残りの作業と、決めていないこと
+- [設計の方針](maintainers/design-principles.md) — 機能を足す・変えるときの判断の基準と、意図して持たない機能
 - [パフォーマンスとGC](maintainers/performance.md) — GCアロケーションを起こさないための実装の方針
 - [内部の設計](maintainers/internals.md) — 利用者向けのページに書いていない実装の仕組みと、その理由
 - [テスト](maintainers/testing.md) — テストの回し方と、GCアロケーション・入力を使うテストの書き方
+- [ベンチマーク](maintainers/benchmark.md) — `MessageBroker`とZeroMessengerの速さとGCアロケーションの比較と、その回し方

@@ -1,6 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
+using Cysharp.Threading.Tasks;
+using Supplement.Core;
 using UnityEngine;
 
 namespace Supplement.Unity
@@ -9,15 +10,14 @@ namespace Supplement.Unity
     /// 自身より下の階層のコンポーネントが発行したメッセージを、型ごとに購読者へ届ける。
     /// </summary>
     /// <remarks>
+    /// 発行・購読の動き(呼ぶ順番・例外の扱い・非同期の購読)は<see cref="MessageBroker"/>と同じ。
+    /// GameObjectが破棄されると、購読をすべて解除する。
     /// <see cref="Publish{T}(Component,T)"/>は呼ぶたびに親を辿ってブローカーを探す。頻繁に発行する場合は、
     /// 探したブローカーを持っておいて<see cref="Publish{T}(T)"/>を呼ぶ。
     /// </remarks>
     public class HierarchyMessageBroker : MonoBehaviour
     {
-        private static int lastTypeIndex = -1;
-
-        // 型ごとの購読者。添字はTypeIndex<T>.Valueで、要素はHandlerList<T>。
-        private object[] handlerLists = Array.Empty<object>();
+        private readonly MessageBroker broker = new MessageBroker();
 
         /// <summary>
         /// <paramref name="component"/>から親を辿って最も近い<see cref="HierarchyMessageBroker"/>(非アクティブのものを含む)を探し、
@@ -38,174 +38,78 @@ namespace Supplement.Unity
         }
 
         /// <summary>
-        /// 購読者を登録順に呼ぶ。購読者が例外を投げても残りの購読者は呼び、最後にまとめて<see cref="AggregateException"/>で投げる。
+        /// <typeparamref name="T"/>を購読しているハンドラーに<paramref name="message"/>を送る。
         /// </summary>
+        /// <remarks>
+        /// 同期のハンドラーは、この呼び出しの中で登録順に呼ぶ。非同期のハンドラー(<see cref="SubscribeAwait{T}"/>)は
+        /// 開始するだけで完了を待たない。
+        /// ハンドラーが例外を投げても残りのハンドラーは呼び、例外は呼び出し元に投げずに
+        /// <c>UniTaskScheduler.UnobservedTaskException</c>に流す。
+        /// </remarks>
+        /// <param name="message">送るメッセージ。</param>
+        /// <typeparam name="T">メッセージの型。</typeparam>
         public void Publish<T>(T message) where T : struct
         {
-            GetHandlerList<T>(false)?.Invoke(message);
+            broker.Publish(message);
         }
 
         /// <summary>
-        /// ハンドラーを登録する。返した<see cref="IDisposable"/>を破棄すると登録を解除する。
+        /// <typeparamref name="T"/>のメッセージを購読する。
         /// </summary>
         /// <remarks>
-        /// 同じデリゲートのインスタンスを重ねて登録しても、発行時に呼ぶのは1回だけ。登録の回数は数えていて、
-        /// すべての戻り値が破棄されるまで登録は残る。
+        /// 同じデリゲートを重ねて登録すると、登録した回数だけ呼ぶ。
         /// </remarks>
+        /// <param name="handler">メッセージを受け取ったときに呼ぶ処理。</param>
+        /// <typeparam name="T">メッセージの型。</typeparam>
+        /// <returns>破棄すると購読をやめる。</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="handler"/>がnull。</exception>
         public IDisposable Subscribe<T>(Action<T> handler) where T : struct
         {
-            if (handler == null) throw new ArgumentNullException(nameof(handler));
-
-            GetHandlerList<T>(true).Add(handler);
-            return new Subscription<T>(this, handler);
+            return broker.Subscribe(handler);
         }
 
-        private void Unsubscribe<T>(Action<T> handler) where T : struct
+        /// <summary>
+        /// <typeparamref name="T"/>のメッセージを、非同期の処理で購読する。
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Publish{T}(T)"/>で開始したハンドラーが投げた例外は、<c>UniTaskScheduler.UnobservedTaskException</c>に流す。
+        /// 購読の解除・<see cref="AsyncSubscribeStrategy.Switch"/>での切り替えで取り消された場合の
+        /// <see cref="OperationCanceledException"/>は、例外として扱わない。
+        /// </remarks>
+        /// <param name="handler">
+        /// メッセージを受け取ったときに呼ぶ処理。渡すトークンは、購読を解除したとき(<see cref="AsyncSubscribeStrategy.Switch"/>では
+        /// 次のメッセージが届いたときも)とGameObjectが破棄されたときに取り消される。
+        /// </param>
+        /// <param name="subscribeStrategy">処理中に次のメッセージが届いたときの扱い。</param>
+        /// <typeparam name="T">メッセージの型。</typeparam>
+        /// <returns>破棄すると購読をやめ、処理中のハンドラーに渡したトークンを取り消す。</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="handler"/>がnull。</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="subscribeStrategy"/>が定義されていない値。</exception>
+        public IDisposable SubscribeAwait<T>(Func<T, CancellationToken, UniTask> handler,
+            AsyncSubscribeStrategy subscribeStrategy = AsyncSubscribeStrategy.Sequential) where T : struct
         {
-            GetHandlerList<T>(false)?.Remove(handler);
+            return broker.SubscribeAwait(handler, subscribeStrategy);
         }
 
-        private HandlerList<T> GetHandlerList<T>(bool createIfMissing) where T : struct
+        /// <summary>
+        /// 次に発行された<typeparamref name="T"/>のメッセージを1件だけ待つ。受け取ったら購読を解除する。
+        /// </summary>
+        /// <remarks>
+        /// 呼んだ時点から購読するため、それより前に発行されたメッセージは受け取らない。
+        /// GameObjectが破棄されても完了しないので、<c>destroyCancellationToken</c>などで取り消す。
+        /// </remarks>
+        /// <param name="cancellationToken">取り消すと購読を解除し、<see cref="OperationCanceledException"/>で完了する。</param>
+        /// <typeparam name="T">メッセージの型。</typeparam>
+        /// <returns>受け取ったメッセージで完了する。</returns>
+        public UniTask<T> FirstAsync<T>(CancellationToken cancellationToken = default) where T : struct
         {
-            var index = TypeIndex<T>.Value;
-            if (index < handlerLists.Length && handlerLists[index] is HandlerList<T> existing)
-            {
-                return existing;
-            }
-
-            if (!createIfMissing)
-            {
-                return null;
-            }
-
-            if (index >= handlerLists.Length)
-            {
-                Array.Resize(ref handlerLists, Math.Max(index + 1, handlerLists.Length * 2));
-            }
-
-            var created = new HandlerList<T>();
-            handlerLists[index] = created;
-            return created;
+            return broker.FirstAsync<T>(cancellationToken);
         }
 
-        // メッセージの型ごとに0から振る連番。Dictionaryを引かずに、配列の添字で購読者を取り出すために使う。
-        private static class TypeIndex<T>
+        // 破棄の後に子が発行しても例外にならないよう、ブローカーは破棄せず、購読の解除だけにする。
+        private void OnDestroy()
         {
-            public static readonly int Value = Interlocked.Increment(ref lastTypeIndex);
-        }
-
-        // 購読者の配列は登録・解除のたびに作り直し、発行時は開始時点の配列をそのまま回す。発行中に登録・解除が
-        // 起きても添字がずれず、発行のたびの配列のコピーも要らない。登録・解除より発行の方がずっと多い前提。
-        private sealed class HandlerList<T> where T : struct
-        {
-            private Action<T>[] handlers = Array.Empty<Action<T>>();
-            // handlersと同じ添字で、そのデリゲートが登録された回数。発行では使わないため、作り直さずにその場で増減する。
-            private int[] subscriptionCounts = Array.Empty<int>();
-
-            public void Add(Action<T> handler)
-            {
-                var index = IndexOf(handler);
-                if (index >= 0)
-                {
-                    subscriptionCounts[index]++;
-                    return;
-                }
-
-                var newHandlers = new Action<T>[handlers.Length + 1];
-                handlers.CopyTo(newHandlers, 0);
-                newHandlers[handlers.Length] = handler;
-                var newCounts = new int[subscriptionCounts.Length + 1];
-                subscriptionCounts.CopyTo(newCounts, 0);
-                newCounts[subscriptionCounts.Length] = 1;
-                handlers = newHandlers;
-                subscriptionCounts = newCounts;
-            }
-
-            public void Remove(Action<T> handler)
-            {
-                var index = IndexOf(handler);
-                if (index < 0)
-                {
-                    return;
-                }
-
-                if (--subscriptionCounts[index] > 0)
-                {
-                    return;
-                }
-
-                handlers = RemoveAt(handlers, index);
-                subscriptionCounts = RemoveAt(subscriptionCounts, index);
-            }
-
-            private static TElement[] RemoveAt<TElement>(TElement[] source, int index)
-            {
-                if (source.Length == 1)
-                {
-                    return Array.Empty<TElement>();
-                }
-
-                var result = new TElement[source.Length - 1];
-                Array.Copy(source, 0, result, 0, index);
-                Array.Copy(source, index + 1, result, index, source.Length - index - 1);
-                return result;
-            }
-
-            public void Invoke(T message)
-            {
-                List<Exception> exceptions = null;
-                foreach (var handler in handlers)
-                {
-                    try
-                    {
-                        handler(message);
-                    }
-                    catch (Exception e)
-                    {
-                        exceptions ??= new List<Exception>();
-                        exceptions.Add(e);
-                    }
-                }
-
-                if (exceptions is not null)
-                {
-                    throw new AggregateException(exceptions);
-                }
-            }
-
-            // デリゲートのEqualsは同じ対象・同じメソッドなら別インスタンスでも等しいとみなすため、参照で探す。
-            private int IndexOf(Action<T> handler)
-            {
-                for (var i = 0; i < handlers.Length; i++)
-                {
-                    if (ReferenceEquals(handlers[i], handler))
-                    {
-                        return i;
-                    }
-                }
-                return -1;
-            }
-        }
-
-        private sealed class Subscription<T> : IDisposable where T : struct
-        {
-            private readonly HierarchyMessageBroker owner;
-            private readonly Action<T> handler;
-            private bool disposed;
-
-            public Subscription(HierarchyMessageBroker owner, Action<T> handler)
-            {
-                this.owner = owner;
-                this.handler = handler;
-            }
-
-            // 2回目以降を無視しないと、同じデリゲートのほかの登録の分まで回数を減らしてしまう。
-            public void Dispose()
-            {
-                if (disposed) return;
-                disposed = true;
-                owner.Unsubscribe(handler);
-            }
+            broker.UnsubscribeAll();
         }
     }
 }
