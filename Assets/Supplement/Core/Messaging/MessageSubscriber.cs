@@ -71,6 +71,9 @@ namespace Supplement.Core
         }
     }
 
+
+    // 非同期の購読者の基底。ハンドラーが完了していなければ、各ストラテジーのasync UniTaskVoidメソッドで1段だけ待つ。
+    // async UniTaskのメソッドで待ってからForgetすると、メッセージごとにプールからの出し入れと継続の登録が段の数だけ増えるため。
     internal abstract class AsyncMessageSubscriber<T> : MessageSubscriber<T> where T : struct
     {
         private readonly Func<T, CancellationToken, UniTask> handler;
@@ -90,11 +93,13 @@ namespace Supplement.Core
             lifetime.Cancel();
         }
 
-        // ハンドラーを呼ぶ。tokenの取り消し(購読の解除・Switchでの切り替え)で終わった場合は、正常に終わったものとして扱う。
-        // ハンドラーが同期的に完了した場合はasyncメソッドを通さない。エディタ(Debugビルド)ではasyncメソッドの
-        // ステートマシンがクラスになり、同期的に完了しても呼ぶたびに確保されるため。
-        protected UniTask RunAsync(T message, CancellationToken token)
+        // ハンドラーを呼ぶ。同期的に完了した(例外を含む)ら、ここで片付けてtrueを返す。完了していなければ、そのタスクを
+        // pendingに入れてfalseを返す。呼び出し側は、pendingを待って例外をReportに渡す。
+        // 同期的に完了した場合にasyncメソッドを通さないのは、エディタ(Debugビルド)ではasyncメソッドのステートマシンが
+        // クラスになり、同期的に完了しても呼ぶたびに確保されるため。
+        protected bool TryRunSynchronously(T message, CancellationToken token, out UniTask pending)
         {
+            pending = default;
             UniTask task;
             try
             {
@@ -102,41 +107,47 @@ namespace Supplement.Core
             }
             catch (Exception e)
             {
-                return FromError(e, token);
+                Report(e, token);
+                return true;
             }
 
             var awaiter = task.GetAwaiter();
             if (!awaiter.IsCompleted)
             {
-                return AwaitAsync(task, token);
+                pending = task;
+                return false;
             }
 
             try
             {
                 awaiter.GetResult();
-                return UniTask.CompletedTask;
             }
             catch (Exception e)
             {
-                return FromError(e, token);
+                Report(e, token);
             }
+            return true;
         }
 
-        private static UniTask FromError(Exception exception, CancellationToken token)
+        // ハンドラーの例外をUniTaskScheduler.UnobservedTaskExceptionに流す。tokenの取り消し(購読の解除・Switchでの切り替え)で
+        // 終わった場合のOperationCanceledExceptionは、正常に終わったものとして捨てる。
+        // UniTaskScheduler.PublishUnobservedTaskExceptionはinternalなので、例外で完了したUniTaskのForgetを通す(例外のときだけ確保する)。
+        protected static void Report(Exception exception, CancellationToken token)
         {
-            return exception is OperationCanceledException && token.IsCancellationRequested
-                ? UniTask.CompletedTask
-                : UniTask.FromException(exception);
+            if (exception is OperationCanceledException && token.IsCancellationRequested) return;
+
+            UniTask.FromException(exception).Forget();
         }
 
-        private static async UniTask AwaitAsync(UniTask task, CancellationToken token)
+        protected static async UniTaskVoid AwaitAsync(UniTask task, CancellationToken token)
         {
             try
             {
                 await task;
             }
-            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            catch (Exception e)
             {
+                Report(e, token);
             }
         }
     }
@@ -150,7 +161,11 @@ namespace Supplement.Core
 
         public override void Invoke(T message)
         {
-            RunAsync(message, LifetimeToken).Forget();
+            var token = LifetimeToken;
+            if (!TryRunSynchronously(message, token, out var pending))
+            {
+                AwaitAsync(pending, token).Forget();
+            }
         }
     }
 
@@ -170,24 +185,25 @@ namespace Supplement.Core
                 return;
             }
 
-            var task = RunAsync(message, LifetimeToken);
-            // 同期的に完了した場合はasyncメソッドを通さない(RunAsyncと同じ理由)。
-            if (!task.Status.IsCompleted())
+            var token = LifetimeToken;
+            if (TryRunSynchronously(message, token, out var pending))
             {
-                ReleaseAfterAsync(task).Forget();
+                Volatile.Write(ref running, 0);
                 return;
             }
 
-            Volatile.Write(ref running, 0);
-            // 例外で完了していれば、ほかのストラテジーと同じくUniTaskScheduler.UnobservedTaskExceptionに流す。
-            task.Forget();
+            ReleaseAfterAsync(pending, token).Forget();
         }
 
-        private async UniTask ReleaseAfterAsync(UniTask task)
+        private async UniTaskVoid ReleaseAfterAsync(UniTask task, CancellationToken token)
         {
             try
             {
                 await task;
+            }
+            catch (Exception e)
+            {
+                Report(e, token);
             }
             finally
             {
@@ -223,7 +239,13 @@ namespace Supplement.Core
             }
 
             previous?.Cancel();
-            RunAndReleaseAsync(message, source).Forget();
+            if (TryRunSynchronously(message, source.Token, out var pending))
+            {
+                Release(source);
+                return;
+            }
+
+            ReleaseAfterAsync(pending, source).Forget();
         }
 
         protected override void OnDisposed()
@@ -239,18 +261,28 @@ namespace Supplement.Core
             source?.Cancel();
         }
 
-        private async UniTask RunAndReleaseAsync(T message, CancellationTokenSource source)
+        private async UniTaskVoid ReleaseAfterAsync(UniTask task, CancellationTokenSource source)
         {
             try
             {
-                await RunAsync(message, source.Token);
+                await task;
+            }
+            catch (Exception e)
+            {
+                Report(e, source.Token);
             }
             finally
             {
-                lock (gate)
-                {
-                    if (current == source) current = null;
-                }
+                Release(source);
+            }
+        }
+
+        // 終わった処理のトークンの元を外す。すでに次のメッセージに切り替わっていれば何もしない。
+        private void Release(CancellationTokenSource source)
+        {
+            lock (gate)
+            {
+                if (current == source) current = null;
             }
         }
     }
@@ -296,7 +328,7 @@ namespace Supplement.Core
         }
 
         // 待っているメッセージを1つずつ処理する。処理中に届いたメッセージはInvokeがキューに足すだけで、ここで続けて処理する。
-        // 同期的に完了する間はこのループで回し、asyncメソッドは処理が終わっていないときだけ通す(RunAsyncと同じ理由)。
+        // 同期的に完了する間はこのループで回し、asyncメソッドは処理が終わっていないときだけ通す。
         private void Pump()
         {
             while (true)
@@ -313,20 +345,17 @@ namespace Supplement.Core
                     message = queue.Dequeue();
                 }
 
-                var task = RunAsync(message, LifetimeToken);
-                if (!task.Status.IsCompleted())
+                var token = LifetimeToken;
+                if (!TryRunSynchronously(message, token, out var pending))
                 {
                     // 完了を待ってから続きを処理する。runningは立てたままなので、その間に届いたメッセージはキューに溜まる。
-                    ContinuePumpAsync(task).Forget();
+                    ContinuePumpAsync(pending, token).Forget();
                     return;
                 }
-
-                // 例外で完了していれば、ほかのストラテジーと同じくUniTaskScheduler.UnobservedTaskExceptionに流す。
-                task.Forget();
             }
         }
 
-        private async UniTaskVoid ContinuePumpAsync(UniTask task)
+        private async UniTaskVoid ContinuePumpAsync(UniTask task, CancellationToken token)
         {
             try
             {
@@ -334,8 +363,7 @@ namespace Supplement.Core
             }
             catch (Exception e)
             {
-                // ほかのストラテジーのForgetと同じく、UniTaskScheduler.UnobservedTaskExceptionに流す。
-                UniTask.FromException(e).Forget();
+                Report(e, token);
             }
             Pump();
         }
@@ -346,7 +374,7 @@ namespace Supplement.Core
     {
         private readonly object gate = new object();
         // 処理を待っているメッセージ。hasPendingがtrueのときだけ意味を持つ。
-        private T pending;
+        private T pendingMessage;
         private bool hasPending;
         private bool running;
 
@@ -363,7 +391,7 @@ namespace Supplement.Core
 
                 if (running)
                 {
-                    pending = message;
+                    pendingMessage = message;
                     hasPending = true;
                     return;
                 }
@@ -380,27 +408,24 @@ namespace Supplement.Core
             // まだ始まっていない分は呼ばずに捨てる。
             lock (gate)
             {
-                pending = default;
+                pendingMessage = default;
                 hasPending = false;
             }
         }
 
         // messageを処理し、その間に届いた最後の1件があれば続けて処理する。
-        // 同期的に完了する間はこのループで回し、asyncメソッドは処理が終わっていないときだけ通す(RunAsyncと同じ理由)。
+        // 同期的に完了する間はこのループで回し、asyncメソッドは処理が終わっていないときだけ通す。
         private void Pump(T message)
         {
             while (true)
             {
-                var task = RunAsync(message, LifetimeToken);
-                if (!task.Status.IsCompleted())
+                var token = LifetimeToken;
+                if (!TryRunSynchronously(message, token, out var pending))
                 {
                     // 完了を待ってから続きを処理する。runningは立てたままなので、その間に届いたメッセージは枠を上書きする。
-                    ContinuePumpAsync(task).Forget();
+                    ContinuePumpAsync(pending, token).Forget();
                     return;
                 }
-
-                // 例外で完了していれば、ほかのストラテジーと同じくUniTaskScheduler.UnobservedTaskExceptionに流す。
-                task.Forget();
 
                 if (!TryTakePending(out message)) return;
             }
@@ -413,21 +438,21 @@ namespace Supplement.Core
             {
                 if (!hasPending || IsDisposed)
                 {
-                    pending = default;
+                    pendingMessage = default;
                     hasPending = false;
                     running = false;
                     message = default;
                     return false;
                 }
 
-                message = pending;
-                pending = default;
+                message = pendingMessage;
+                pendingMessage = default;
                 hasPending = false;
                 return true;
             }
         }
 
-        private async UniTaskVoid ContinuePumpAsync(UniTask task)
+        private async UniTaskVoid ContinuePumpAsync(UniTask task, CancellationToken token)
         {
             try
             {
@@ -435,8 +460,7 @@ namespace Supplement.Core
             }
             catch (Exception e)
             {
-                // ほかのストラテジーのForgetと同じく、UniTaskScheduler.UnobservedTaskExceptionに流す。
-                UniTask.FromException(e).Forget();
+                Report(e, token);
             }
 
             if (TryTakePending(out var message))

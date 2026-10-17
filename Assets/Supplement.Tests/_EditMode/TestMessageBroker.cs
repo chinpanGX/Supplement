@@ -487,6 +487,35 @@ namespace Supplement.Tests.EditMode
             Assert.AreEqual(UniTaskStatus.Canceled, task.Status);
         }
 
+        [TestCase(AsyncSubscribeStrategy.Sequential)]
+        [TestCase(AsyncSubscribeStrategy.Parallel)]
+        [TestCase(AsyncSubscribeStrategy.Switch)]
+        [TestCase(AsyncSubscribeStrategy.Drop)]
+        [TestCase(AsyncSubscribeStrategy.ThrottleFirstLast)]
+        public void ExceptionAfterAwaitIsForwardedAndNextMessageRuns(AsyncSubscribeStrategy strategy)
+        {
+            var started = 0;
+            var gate = new UniTaskCompletionSource();
+            broker.SubscribeAwait<SampleMessage>(async (_, _) =>
+            {
+                started++;
+                await gate.Task;
+                throw new InvalidOperationException("late");
+            }, strategy);
+
+            broker.Publish(new SampleMessage());
+            gate.TrySetResult();
+
+            // 待った後の例外は、呼び出し元に投げずにUnobservedTaskExceptionへ流す。
+            Assert.AreEqual(1, unobserved.Count);
+            Assert.AreEqual("late", unobserved[0].Message);
+
+            // 例外で終わっても、処理中の印は残らず、次のメッセージを処理する。
+            broker.Publish(new SampleMessage());
+            Assert.AreEqual(2, started);
+            Assert.AreEqual(2, unobserved.Count);
+        }
+
         [Test]
         public void SubscribeAwaitThrowsForUndefinedStrategy()
         {
