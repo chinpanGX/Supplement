@@ -1,91 +1,43 @@
 # ベンチマーク(メンテナー向け)
 
-[メッセージング](../features/messaging.md)の`MessageBroker`を、ZeroMessengerと比べるベンチマークです。`MessageBroker`は機能を最小限に絞っています。機能を絞っても速さとGCアロケーションで劣らないことを、数値で確かめるために置いています。
+[メッセージング](../features/messaging.md)の`MessageBroker`を、ZeroMessengerと比べます。機能を絞っても、速さとGCアロケーションで劣らないことを確かめるためです。
 
-ベンチマークはリポジトリ直下の`Benchmarks/`にあります。Assetsの外なので、Unityの管理対象外で、パッケージにも含まれません。
-
-## 構成
-
-- `.NET 10`のコンソールアプリで、[BenchmarkDotNet](https://benchmarkdotnet.org/)で測ります
-- NuGetで入れるのは`BenchmarkDotNet`・`UniTask`・`ZeroMessenger`の3つです
-- 測る実装は、Unityプロジェクトのソース(`IMessageBroker`・`AsyncSubscribeStrategy`・`Messaging/`・`GlobalMessageBroker`)をコピーせずにリンクしています。ソースを直せば、そのままベンチマークに反映されます
-
-| クラス | 測るもの |
-|---|---|
-| `PublishBenchmark` | 同期のハンドラーへの`Publish`。購読者が0・1・10・100のとき。基準はC#の`event` |
-| `SubscribeAwaitBenchmark` | `SubscribeAwait`の購読者への`Publish`。ZeroMessengerにもある4つのストラテジー(`ThrottleFirstLast`以外)を、ハンドラーが同期的に完了する場合と本当に待つ場合、購読者が1・10のときで比べる |
-| `SubscribeBenchmark` | 購読して、すぐに解除する。計測の前から登録されている購読者が0・100のとき |
-
-条件は、実際の使い方に揃えています。
-
-- 発行や購読は、具体的な型ではなくインターフェース(`IMessageBroker`・ZeroMessengerの`IMessagePublisher<T>`/`IMessageSubscriber<T>`)を通して呼ぶ。利用者はDIで受け取ったインターフェースを通して呼ぶためです
-- `PublishBenchmark`で購読者が0のときも、一度購読して解除し、型ごとのチャンネルを作っておく。実際のゲームでは、チャンネルが無い状態はほぼ起きないためです
-- ハンドラーが本当に待つ場合は、完了していないタスクを返し、発行の後で完了させるところまでを1回として測る。待ちに使うタスクの元(`Signals.cs`)は使い回すので、計測のための確保は入りません
+ベンチマークはリポジトリ直下の`Benchmarks/`にあります(.NET 10のコンソールアプリ・BenchmarkDotNet)。Unityプロジェクトのソースをリンクしているので、ソースを直せばそのまま反映されます。
 
 ## 回し方
 
-`global.json`で.NET 10のSDKを指定しています。PATHで先に見つかる`dotnet`が古いSDKだと、BenchmarkDotNetが起動に失敗します(`NullReferenceException`)。その場合は、.NET 10を入れた場所をPATHの先頭に置きます。
-
 ```powershell
-$env:PATH = "C:\Program Files\dotnet;$env:PATH"
+$env:PATH = "C:\Program Files\dotnet;$env:PATH"   # .NET 10のSDKを先に見つけさせる
 cd Benchmarks\Supplement.Benchmarks
 
-dotnet run -c Release -- --filter * --launchCount 3       # すべて。結果に使うのはこれ
-dotnet run -c Release -- --filter *PublishBenchmark*      # 一部だけ
-dotnet run -c Release -- --filter * --job dry             # 動くかだけ確かめる(数値は使えない)
-dotnet run -c Release -- --filter * --exporters github    # GitHubに貼れるMarkdownも出す
+dotnet run -c Release -- --filter * --launchCount 3 --exporters github   # 結果に使うのはこれ
+dotnet run -c Release -- --filter * --job dry                            # 動くかだけ確かめる
 ```
 
-- 1つのプロセスだけで測ると、実行するたびに1割ほど値が動きます。結果に使うときは`--launchCount 3`で別々のプロセスで3回測ります。差が誤差(`Error`の列)より小さいものは、結論にしません
-- Git Bashでは`*`がファイル名に展開されるので、`--filter '*'`のように引用符で囲みます
-- 結果は`BenchmarkDotNet.Artifacts/results/`に出ます(git管理外)
-- ブラウザやUnityなど重いアプリは閉じて測ります
-- Riderでは`Benchmarks/Supplement.Benchmarks.sln`を開き、設定の「.NET CLI executable path」に.NET 10の`dotnet.exe`を指定します
+- 重いアプリ(ブラウザ・Unity)は閉じて測ります。結果は`BenchmarkDotNet.Artifacts/results/`に出ます
+- Git Bashでは`--filter '*'`のように引用符で囲みます
 
-## 結果
+## 結果(2026-10-17)
 
-2026-10-14に測った結果です。
+.NETでの相対的な比較です。Unity(Mono・IL2CPP)上の速さの絶対値には使えません。
 
-- CPU: Intel Core i7-13700F / メモリ: 16GB / OS: Windows 11
-- .NET 10.0.12(X64 RyuJIT AVX2)/ BenchmarkDotNet 0.15.2 / UniTask 2.5.10 / ZeroMessenger 1.0.4
+| 計測 | MessageBroker | ZeroMessenger |
+|---|---:|---:|
+| Publish・同期のハンドラー・購読者1人 | 5.4 ns | 26.9 ns |
+| Publish・同期のハンドラー・購読者10人 | 21.4 ns | 30.7 ns |
+| Publish・同期のハンドラー・購読者100人 | 188.0 ns | 190.5 ns |
+| 購読して解除(既存の購読者100人) | 32.6 ns / 64 B | 28.9 ns / 64 B |
 
-**これは.NETでの相対的な比較です。** UnityはMono(エディタ・Monoのプレイヤー)かIL2CPPで動き、.NET 10のCoreCLRとは別物です。Unity上の速さの絶対値には使えません。
+`SubscribeAwait`の購読者10人への`Publish`(「待つ」はハンドラーが本当に待つ場合):
 
-### Publish(同期のハンドラー)
+| ストラテジー | MessageBroker | ZeroMessenger | MessageBroker(待つ) | ZeroMessenger(待つ) |
+|---|---:|---:|---:|---:|
+| Sequential | 406 ns / 0 B | 438 ns / 0 B | 778 ns / 0 B | 1,400 ns / 2,640 B |
+| Parallel | 34 ns / 0 B | 102 ns / 0 B | 386 ns / 0 B | 594 ns / 1,280 B |
+| Switch | 296 ns / 480 B | 771 ns / 2,560 B | 663 ns / 480 B | 1,236 ns / 3,840 B |
+| Drop | 70 ns / 0 B | 267 ns / 0 B | 435 ns / 0 B | 1,268 ns / 2,560 B |
 
-| 購読者 | C# event | MessageBroker | ZeroMessenger | GlobalMessageBroker |
-|---:|---:|---:|---:|---:|
-| 0 | 0.0 ns | 0.0 ns | 26.1 ns | 26.5 ns |
-| 1 | 1.1 ns | 2.8 ns | 26.0 ns | 26.3 ns |
-| 10 | 19.3 ns | 20.9 ns | 29.7 ns | 30.0 ns |
-| 100 | 184.4 ns | 204.9 ns | 189.5 ns | 172.4 ns |
+(時間 / 1回あたりのGCアロケーション。同期のPublishはどちらも0 B)
 
-どの組み合わせもGCアロケーションは0です。
-
-### Publish(非同期の購読者)
-
-| ストラテジー | 購読者 | MessageBroker | ZeroMessenger |
-|---|---:|---:|---:|
-| Sequential | 1 | 40.6 ns | 65.7 ns |
-| Sequential | 10 | 401.8 ns | 436.2 ns |
-| Parallel | 1 | 5.3 ns | 32.8 ns |
-| Parallel | 10 | 39.6 ns | 98.3 ns |
-
-どの組み合わせもGCアロケーションは0です。
-
-### 購読と解除
-
-| 既存の購読者 | C# event | MessageBroker | ZeroMessenger | GlobalMessageBroker |
-|---:|---:|---:|---:|---:|
-| 0 | 6.2 ns / 0 B | 33.9 ns / 72 B | 28.4 ns / 64 B | 70.5 ns / 104 B |
-| 100 | 107.2 ns / 1,176 B | 133.1 ns / 1,696 B | 28.8 ns / 64 B | 72.6 ns / 104 B |
-
-(時間 / 1回あたりのGCアロケーション)
-
-### 読み方
-
-- **発行は、購読者が少ないほど差が大きくなります。** ZeroMessengerは購読者の数によらず25ns前後の固定のコストがあり、`MessageBroker`にはありません。購読者が1人なら約9倍、10人なら約1.4倍速くなります。100人では、購読者ごとのコストが効いてZeroMessengerがやや速くなります(1割以内)
-- **非同期の購読者への発行は、すべての条件で`MessageBroker`が速くなりました。** 同期的に完了するハンドラーで`async`メソッドを通さないためです([パフォーマンスとGC](performance.md))
-- **購読と解除はZeroMessengerが速く、購読者が多いほど差が開きます。** `MessageBroker`は購読者の配列を登録・解除のたびに作り直すため、既存の購読者の数に比例して時間とアロケーションが増えます。発行のたびのコピーやロックを無くすための、意図した設計です([内部の設計](internals.md))。購読と解除は画面を開くとき程度の頻度で、毎フレームの発行より少ない前提です
-- 購読者が0のとき、`MessageBroker`は型ごとのチャンネルがまだ無いため、ほぼ何もしません
-- 100人のときに`GlobalMessageBroker`がZeroMessengerを直接使うより速く出ていますが、ラッパーの分だけ遅くなることはあっても速くなる理由は無いので、計測のぶれと見ています
+- 発行は、すべての条件で`MessageBroker`が同じか速く、GCアロケーションも少なくなります
+- 購読と解除だけは、ZeroMessengerが1割ほど速くなります
